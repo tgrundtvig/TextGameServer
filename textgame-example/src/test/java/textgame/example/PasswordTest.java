@@ -23,16 +23,10 @@ class PasswordTest {
         if (server != null) {
             server.close();
         }
-        System.clearProperty("textgame.password");
     }
 
     private TextGameServer serverWith(String password) throws Exception {
-        if (password == null) {
-            System.clearProperty("textgame.password");
-        } else {
-            System.setProperty("textgame.password", password);
-        }
-        server = TextGameServer.start(0);
+        server = TextGameServer.start(0, password);
         return server;
     }
 

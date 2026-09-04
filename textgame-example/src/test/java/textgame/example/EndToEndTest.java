@@ -25,7 +25,7 @@ class EndToEndTest {
 
     @BeforeEach
     void startServer() throws Exception {
-        server = TextGameServer.start(0);
+        server = TextGameServer.start(0, null);
         port = server.port();
     }
 

@@ -66,11 +66,26 @@ public final class TextGameServer implements AutoCloseable {
         }
     }
 
-    /** Starts listening and returns straight away. Pass 0 to be given a free port. */
+    /**
+     * Starts listening and returns straight away, taking its password from the environment.
+     * Pass 0 to be given a free port.
+     */
     public static TextGameServer start(int port) throws IOException {
+        return start(port, configuredPassword());
+    }
+
+    /**
+     * Starts a server with the password given here rather than whatever the environment
+     * happens to hold.
+     *
+     * <p>Exists because a test that reads ambient configuration is not a test of anything: the
+     * build container has {@code TEXTGAME_PASSWORD} set, so servers started by the test suite
+     * silently demanded a password and every other suite timed out against them. A test says
+     * what it wants.
+     */
+    public static TextGameServer start(int port, String password) throws IOException {
         long idleSeconds = Long.getLong("textgame.idleSeconds", 120);
         int maxTables = Integer.getInteger("textgame.maxTablesPerGame", 20);
-        String password = configuredPassword();
         ServerSocket listener = new ServerSocket(port);
         TextGameServer server = new TextGameServer(listener, idleSeconds, maxTables, password);
         System.out.println(password == null

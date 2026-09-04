@@ -24,7 +24,7 @@ class ServerRulesTest {
 
     @Test
     void aGameThatRegistersNonsenseIsToldWhyBeforeBeingDropped() throws Exception {
-        server = TextGameServer.start(0);
+        server = TextGameServer.start(0, null);
         try (ScriptedGame bad = new ScriptedGame(server.port(), "Backwards", 5, 2, "nope")) {
             assertTrue(bad.await(MessageType.ERR).text().contains("minPlayers()"));
             // The goodbye has to survive the connection being closed right after it.
@@ -35,7 +35,7 @@ class ServerRulesTest {
     @Test
     void aPlayerWhoNeverAnswersEndsTheMatchForEverybody() throws Exception {
         System.setProperty("textgame.idleSeconds", "1");
-        server = TextGameServer.start(0);
+        server = TextGameServer.start(0, null);
         int port = server.port();
 
         try (ScriptedGame duel = new ScriptedGame(port, "Number Duel", 2, 4, "Guess.");
@@ -77,7 +77,7 @@ class ServerRulesTest {
 
     @Test
     void aConnectionThatSaysSomethingUnexpectedFirstIsToldWhatToDo() throws Exception {
-        server = TextGameServer.start(0);
+        server = TextGameServer.start(0, null);
         try (ScriptedPlayer stranger = new ScriptedPlayer(server.port(), "ok")) {
             stranger.await(MessageType.NAME_OK);
         }
