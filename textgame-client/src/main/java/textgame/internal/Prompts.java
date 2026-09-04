@@ -36,18 +36,25 @@ public final class Prompts {
         }
     }
 
-    /** The answer as a yes or a no, or {@code null} if it is neither. */
+    /**
+     * The answer as a yes or a no, or {@code null} if it is neither.
+     *
+     * <p>Danish as well as English, because the students writing these games and the players
+     * answering them are Danish: a game that asks <em>"Vil du slå om?"</em> and then refuses
+     * <em>ja</em> is the framework's fault, not the player's. There is no clash — {@code n}
+     * means no in both languages.
+     */
     public static Boolean asYesNo(String answer) {
         return switch (answer.trim().toLowerCase(Locale.ROOT)) {
-            case "y", "yes" -> Boolean.TRUE;
-            case "n", "no" -> Boolean.FALSE;
+            case "y", "yes", "j", "ja" -> Boolean.TRUE;
+            case "n", "no", "nej" -> Boolean.FALSE;
             default -> null;
         };
     }
 
     public static final String WHOLE_NUMBER = "Please type a whole number.";
     public static final String NUMBER = "Please type a number.";
-    public static final String YES_OR_NO = "Please answer yes or no.";
+    public static final String YES_OR_NO = "Please answer yes or no (ja/nej).";
 
     public static String wholeNumberBetween(int min, int max) {
         return "Please type a whole number between " + min + " and " + max + ".";

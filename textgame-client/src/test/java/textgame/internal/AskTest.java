@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
+import textgame.Player;
 import textgame.protocol.Message;
 import textgame.protocol.MessageType;
 
@@ -82,9 +83,37 @@ class AskTest {
         server.startTable("t1", "alice");
 
         server.answerPrompt("t1", "p1", "maybe");
-        assertEquals("Please answer yes or no.", server.answerPrompt("t1", "p1", "Y"));
+        assertEquals("Please answer yes or no (ja/nej).",
+                server.answerPrompt("t1", "p1", "Y"));
         server.expect(MessageType.ENDMATCH);
         assertTrue(got.get());
+    }
+
+    @Test
+    void askYesNoAcceptsDanishToo() {
+        AtomicReference<String> got = new AtomicReference<>();
+        server.start(new TestGame(room -> {
+            Player p = room.players().get(0);
+            got.set(p.askYesNo("Vil du?") + "," + p.askYesNo("Og nu?") + ","
+                    + p.askYesNo("Og saa?"));
+        }));
+        server.startTable("t1", "alice");
+
+        server.answerPrompt("t1", "p1", "ja");
+        server.answerPrompt("t1", "p1", "NEJ");
+        assertEquals("Og saa?", server.answerPrompt("t1", "p1", " j "));
+        server.expect(MessageType.ENDMATCH);
+        assertEquals("true,false,true", got.get());
+    }
+
+    @Test
+    void aYesNoThatIsNeitherLanguageSaysBoth() {
+        server.start(new TestGame(room -> room.players().get(0).askYesNo("Ja eller nej?")));
+        server.startTable("t1", "alice");
+        server.answerPrompt("t1", "p1", "maaske");
+        assertEquals("Please answer yes or no (ja/nej).",
+                server.answerPrompt("t1", "p1", "ja"));
+        server.expect(MessageType.ENDMATCH);
     }
 
     @Test
