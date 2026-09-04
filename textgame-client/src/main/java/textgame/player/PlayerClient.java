@@ -12,6 +12,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.LinkedBlockingQueue;
 import textgame.protocol.Message;
 import textgame.protocol.MessageChannel;
+import textgame.protocol.Names;
 import textgame.protocol.MessageType;
 import textgame.protocol.ProtocolException;
 
@@ -85,10 +86,17 @@ public final class PlayerClient {
         try {
             while (!finished) {
                 Object event = events.take();
-                if (event instanceof Message message) {
-                    fromServer(message);
-                } else {
-                    typed((Typed) event);
+                try {
+                    if (event instanceof Message message) {
+                        fromServer(message);
+                    } else {
+                        typed((Typed) event);
+                    }
+                } catch (RuntimeException e) {
+                    // A bug here is not the player's fault and must not end their evening.
+                    out.println("Sorry — something went wrong handling that ("
+                            + e.getClass().getSimpleName() + "). Carrying on.");
+                    reprompt();
                 }
             }
         } catch (InterruptedException e) {
@@ -306,12 +314,24 @@ public final class PlayerClient {
                     prompt("Your name? ");
                     return;
                 }
+                // Checked here as well as on the server, so the answer is instant. The
+                // server still checks, and owns the part only it knows: is it taken?
+                if (!Names.isPlayerName(line)) {
+                    out.println(Names.whyNotPlayerName(line));
+                    prompt("Your name? ");
+                    return;
+                }
                 send(Message.withText(MessageType.NAME, line));
             }
             case PICKING_GAME -> pickGame(line);
             case PICKING_TABLE -> pickTable(line);
             case NAMING_TABLE -> {
                 String name = line.isEmpty() ? defaultTableName() : line;
+                if (!Names.isTableName(name)) {
+                    out.println(Names.whyNotTableName(name));
+                    prompt("Table name [" + defaultTableName() + "]? ");
+                    return;
+                }
                 send(Message.of(MessageType.CREATE_TABLE, chosenGameId, name));
             }
             case AT_TABLE -> atTable(line);
@@ -360,12 +380,13 @@ public final class PlayerClient {
     }
 
     private void joinByName(String line) {
-        if (line.matches("[A-Za-z0-9_-]{1,20}")) {
+        if (Names.isTableName(line)) {
             send(Message.of(MessageType.JOIN_TABLE, line));
-        } else {
-            out.println("Type the number of what you want, or the name of a table.");
-            reprompt();
+            return;
         }
+        out.println("Type the number of what you want, or the name of a table.");
+        out.println(Names.whyNotTableName(line));
+        reprompt();
     }
 
     private void atTable(String line) {
@@ -392,9 +413,7 @@ public final class PlayerClient {
     }
 
     private String defaultTableName() {
-        String base = myName.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_-]", "");
-        String name = (base.isEmpty() ? "table" : base) + "-table";
-        return name.length() > 20 ? name.substring(0, 20) : name;
+        return Names.defaultTableNameFor(myName);
     }
 
     private static Integer number(String line) {

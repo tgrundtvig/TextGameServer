@@ -5,9 +5,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 import textgame.protocol.Message;
 import textgame.protocol.MessageType;
+import textgame.protocol.Names;
 
 /**
  * The whole server, minus the sockets: games, tables, players, and the routing between them.
@@ -20,11 +20,6 @@ import textgame.protocol.MessageType;
  * telling twenty people something cannot block on anybody's network.
  */
 final class Hub {
-
-    /** Letters, digits, dash and underscore, up to twenty. Short enough to say out loud. */
-    private static final Pattern TABLE_NAME = Pattern.compile("[A-Za-z0-9_-]{1,20}");
-    /** Same idea, shorter: a player name has to fit in "* alice is ready (1/3)". */
-    private static final Pattern PLAYER_NAME = Pattern.compile("[A-Za-z0-9_-]{1,16}");
 
     private final Map<String, HostedGame> games = new LinkedHashMap<>();
     private final Map<String, Table> tablesByKey = new LinkedHashMap<>();
@@ -142,9 +137,8 @@ final class Hub {
     /** Names are unique server-wide, so "* alice is ready" always means one person. */
     synchronized PlayerSession join(Endpoint out, String name) {
         String wanted = name.strip();
-        if (!PLAYER_NAME.matcher(wanted).matches()) {
-            out.err("A name can be 1 to 16 letters, digits, - or _, with no spaces."
-                    + " Try something like alice or alice_2.");
+        if (!Names.isPlayerName(wanted)) {
+            out.err(Names.whyNotPlayerName(wanted));
             return null;
         }
         if (playersByKey.containsKey(key(wanted))) {
@@ -264,9 +258,8 @@ final class Hub {
                     + " whoever was running it has stopped.");
             return;
         }
-        if (!TABLE_NAME.matcher(name).matches()) {
-            player.out().err("A table name can be 1 to 20 letters, digits, - or _,"
-                    + " with no spaces.");
+        if (!Names.isTableName(name)) {
+            player.out().err(Names.whyNotTableName(name));
             return;
         }
         if (tablesByKey.containsKey(key(name))) {

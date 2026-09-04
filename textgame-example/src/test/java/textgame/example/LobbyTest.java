@@ -98,8 +98,10 @@ class LobbyTest {
         p.await(MessageType.NAME_OK);
         ScriptedPlayer spaced = new ScriptedPlayer(port, "Ada Lovelace");
         open.add(spaced);
-        assertTrue(spaced.await(MessageType.ERR).text().contains("1 to 16 letters"),
-                spaced.transcript());
+        // The space is the problem, so the space is what gets mentioned — with a fix.
+        String said = spaced.await(MessageType.ERR).text();
+        assertTrue(said.contains("cannot contain spaces"), said);
+        assertTrue(said.contains("Try Ada-Lovelace."), said);
     }
 
     @Test
@@ -273,11 +275,17 @@ class LobbyTest {
         String duel = gameId(alice, "Number Duel");
 
         alice.send(Message.of(MessageType.CREATE_TABLE, duel, "way-too-long-a-name-for-a-table"));
-        assertTrue(alice.await(MessageType.ERR).text().contains("1 to 20 letters"),
-                alice.transcript());
+        String tooLong = alice.await(MessageType.ERR).text();
+        assertTrue(tooLong.contains("31 characters long"), tooLong);
+        assertTrue(tooLong.contains("the most is 20"), tooLong);
 
         alice.send(Message.of(MessageType.CREATE_TABLE, duel, "tab!e"));
-        assertTrue(alice.await(MessageType.ERR).text().contains("1 to 20 letters"));
+        String odd = alice.await(MessageType.ERR).text();
+        assertTrue(odd.contains("letters, digits, - and _"), odd);
+
+        // The server checks too, even though the client cannot send a space in this field.
+        alice.send(Message.of(MessageType.CREATE_TABLE, duel, "fine-name"));
+        assertEquals("fine-name", alice.await(MessageType.JOINED).arg(0));
     }
 
     @Test
