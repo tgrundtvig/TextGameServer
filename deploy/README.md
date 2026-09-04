@@ -154,7 +154,7 @@ static Maven repository so their poms resolve `textgame-client`.
 | URL | `https://maven.tobiasgrundtvig.dk` |
 | On disk | `/var/www/maven` on prodesk, `tog:tog`, dirs 755 / files 644 |
 | Served by | Caddy, a `file_server browse` block beside the six static sites |
-| Published | `textgame-parent`, `textgame-protocol`, `textgame-client` at 0.1.0 |
+| Published | `textgame-parent`, `textgame-protocol`, `textgame-client`; 0.1.0 and 0.2.0 published |
 | Publish with | `deploy/publish-maven.sh` (`--force` to overwrite a version) |
 
 **It is on 443**, so unlike the game port it works from any network that allows

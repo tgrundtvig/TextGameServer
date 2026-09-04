@@ -6,7 +6,7 @@
   <parent>
     <groupId>textgame</groupId>
     <artifactId>textgame-parent</artifactId>
-    <version>0.1.0</version>
+    <version>0.2.0</version>
   </parent>
   <artifactId>textgame-example</artifactId>
   <dependencies><dependency><groupId>textgame</groupId><artifactId>textgame-client</artifactId></dependency><dependency><groupId>textgame</groupId><artifactId>textgame-server</artifactId></dependency><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId></dependency></dependencies>

@@ -6,7 +6,7 @@
 
   <groupId>textgame</groupId>
   <artifactId>textgame-parent</artifactId>
-  <version>0.1.0</version>
+  <version>0.2.0</version>
   <packaging>pom</packaging>
   <name>TextGameServer</name>
   <description>A tiny server for turn-based, text-based multiplayer games.</description>
