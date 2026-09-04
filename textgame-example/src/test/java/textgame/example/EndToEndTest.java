@@ -8,6 +8,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import textgame.Game;
+import textgame.Match;
 import textgame.GameServer;
 import textgame.protocol.Message;
 import textgame.protocol.MessageType;
@@ -167,30 +168,47 @@ class EndToEndTest {
         }
     }
 
+    /** Asks each player once, in join order, and says what they answered. No randomness. */
+    static class TakeTurns implements Game {
+        public String name()        { return "Take Turns"; }
+        public String description() { return "Everyone answers once, in order."; }
+        public int    minPlayers()  { return 2; }
+        public int    maxPlayers()  { return 4; }
+        public Match  newMatch() {
+            return room -> {
+                for (textgame.Player p : room.players()) {
+                    room.tellAll(p.name() + " said " + p.ask("Your turn?"));
+                }
+            };
+        }
+    }
+
     @Test
     void typingOutOfTurnIsRefusedAndNotBuffered() throws Exception {
-        hostGame(new NumberDuel());
+        // Deliberately not NumberDuel: its secret is random, so a guess of 1 ends the
+        // match one time in a hundred and the second player never gets a turn at all.
+        hostGame(new TakeTurns());
         try (ScriptedPlayer alice = player("alice"); ScriptedPlayer bob = player("bob")) {
-            String gameId = findGame(alice, "Number Duel");
-            alice.send(Message.of(MessageType.CREATE_TABLE, gameId, "duel"));
+            String gameId = findGame(alice, "Take Turns");
+            alice.send(Message.of(MessageType.CREATE_TABLE, gameId, "turns"));
             alice.await(MessageType.JOINED);
-            bob.send(Message.of(MessageType.JOIN_TABLE, "duel"));
+            bob.send(Message.of(MessageType.JOIN_TABLE, "turns"));
             bob.await(MessageType.JOINED);
             alice.say(MessageType.READY);
             bob.say(MessageType.READY);
             bob.await(MessageType.MATCH_START);
 
-            alice.await(MessageType.PROMPT);
-            bob.answer("7");                                     // not bob's turn
+            assertEquals("Your turn?", alice.await(MessageType.PROMPT).text());
+            bob.answer("bob-jumped-the-queue");            // not bob's turn
             assertEquals("It's not your turn.", bob.await(MessageType.ERR).text());
 
-            alice.answer("1");
-            alice.await(MessageType.MSG);
+            alice.answer("alice-answered");
+            assertEquals("alice said alice-answered", alice.await(MessageType.MSG).text());
 
-            // Bob's aside was thrown away, not saved up and played as his move.
-            assertEquals("Your guess?", bob.await(MessageType.PROMPT).text());
-            bob.answer("2");
-            assertTrue(bob.await(MessageType.MSG).text().contains("bob guessed 2"));
+            // Bob's aside was thrown away, not saved up and played as his answer.
+            assertEquals("Your turn?", bob.await(MessageType.PROMPT).text());
+            bob.answer("bob-answered");
+            assertEquals("bob said bob-answered", bob.await(MessageType.MSG).text());
         }
     }
 

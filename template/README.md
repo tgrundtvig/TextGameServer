@@ -10,9 +10,9 @@ resten klarer biblioteket.
    IntelliJ henter selv biblioteket ned. Første gang tager det et øjeblik.
 3. **Omdøb de to klasser** til noget, der passer til dit spil. Højreklik på
    klassenavnet → Refactor → Rename. `MyGame` og `MyGameMatch` skal begge
-   omdøbes. `Spiller` skal du lade være.
+   omdøbes. `StartPlayer` skal du lade være.
 
-Der ligger tre filer: `MyGame` og `MyGameMatch` er **dit spil**, og `Spiller`
+Der ligger tre filer: `MyGame` og `MyGameMatch` er **dit spil**, og `StartPlayer`
 er bare en grøn pil, der starter spiller-programmet.
 
 ## Kodeordet
@@ -50,10 +50,10 @@ hver, der er med. I IntelliJ bliver de til hver sin fane nederst i Run-vinduet.
 1. **Start dit spilprogram** — grøn pil ud for `main` i `MyGame`. Nu står dit
    spil i lobbyen på klasseserveren, og alle kan se det.
 
-2. **Start en spiller** — grøn pil ud for `main` i `Spiller`.
+2. **Start en spiller** — grøn pil ud for `main` i `StartPlayer`.
 
    Skal I være flere på den samme computer, skal IntelliJ have lov at køre
-   `Spiller` mere end én gang: **Run → Edit Configurations…**, vælg `Spiller`,
+   `StartPlayer` mere end én gang: **Run → Edit Configurations…**, vælg `StartPlayer`,
    og sæt flueben i **Allow multiple instances** (den ligger under
    *Modify options*). Uden det flueben genstarter IntelliJ bare den spiller,
    der allerede kører.
@@ -66,7 +66,7 @@ hver, der er med. I IntelliJ bliver de til hver sin fane nederst i Run-vinduet.
    hopper du direkte derhen. Skriv `ready` begge steder, og spillet går i gang.
 
 Serveren kører hele tiden, så du skal ikke selv starte noget. Den står som
-`game.tobiasgrundtvig.dk` i `MyGame` og i `Spiller`.
+`game.tobiasgrundtvig.dk` i `MyGame` og i `StartPlayer`.
 
 ## Hvis I spiller et andet sted
 
@@ -75,7 +75,7 @@ serveren i klasselokalet, skal du bytte adressen ud to steder:
 
 ```java
 GameServer.connect("game.tobiasgrundtvig.dk", 4000)                   // i MyGame
-PlayerClient.main(new String[] {"game.tobiasgrundtvig.dk", "4000"});  // i Spiller
+PlayerClient.main(new String[] {"game.tobiasgrundtvig.dk", "4000"});  // i StartPlayer
 ```
 
 Det er de eneste to steder, adressen står.
