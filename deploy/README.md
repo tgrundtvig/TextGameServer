@@ -77,8 +77,15 @@ with `POST /api/v1/deploy?uuid=<app-uuid>` meanwhile.)
 **3. Env.** `TEXTGAME_PORT=4000`. Optional: `JAVA_TOOL_OPTIONS` for
 `-Dtextgame.idleSeconds` and `-Dtextgame.maxTablesPerGame`.
 
-**4. Router.** Forward WAN `4000` → `192.168.1.100:4000`. This is the one step
-that is not in Coolify — 80 and 443 are already forwarded, nothing else is.
+**4. Router.** Forward WAN `4000` → `192.168.1.100:4000`, TCP. This is the one
+step that is not in Coolify — 80 and 443 are already forwarded, nothing else
+is. The router is at `192.168.1.1`; prodesk's LAN address is static enough in
+practice, but pin a DHCP reservation for it while you are in there, because the
+forward breaks silently if that address ever moves.
+
+Nothing else on prodesk is in the way: `ufw` is inactive, iptables `INPUT`
+policy is `ACCEPT`, the container is `restart=unless-stopped` and Docker is
+enabled at boot, so the server comes back on its own after a reboot.
 
 **5. DNS.** `game.tobiasgrundtvig.dk` already resolves to `212.60.124.173`
 (the domain is wildcarded), so no record needs adding. Students use:
@@ -100,18 +107,35 @@ tailnet:
 nc -vz game.tobiasgrundtvig.dk 4000
 ```
 
-## The one real risk: school outbound firewalls
+## The open question: can the school reach port 4000?
 
-Many school and campus networks allow outbound `443` and `80` and block
-everything else. **Port 4000 may simply not be reachable from the classroom.**
-There is no clean way around it here: `443` on this host belongs to Caddy,
-serving six public domains, and one public IP cannot lend it out.
+**Unknown, and deliberately untested until it can be tested for real.** Many
+school and campus networks allow outbound `443` and `80` and block everything
+else. There is no clean way around that here: `443` on this host belongs to
+Caddy, serving six public domains, and one public IP cannot lend it out.
 
-So: **test from the actual school network before relying on it.** If 4000 is
-blocked, the options, cheapest first:
+So the port is open and the question is parked. **Test it from the actual
+school network** — one command, from a machine on the school wifi:
+
+```bash
+nc -vz game.tobiasgrundtvig.dk 4000        # or: telnet game.tobiasgrundtvig.dk 4000
+```
+
+Better still, play through it, which tests the whole path rather than the
+handshake:
+
+```bash
+java -jar textgame-client.jar game.tobiasgrundtvig.dk 4000
+```
+
+You should get `Connected to class server.` and a lobby. If it hangs or is
+refused, the school blocks the port.
+
+If 4000 is blocked, the options, cheapest first:
 
 1. Use the classroom laptop server (option 1 above) during lessons and accept
-   that prodesk is for home use only.
+   that prodesk is for home use only. This costs nothing and is already how the
+   design expects a lesson to run.
 2. Try another port — some networks allow high ports selectively.
 3. Build Caddy with `xcaddy` and the `layer4` plugin, terminate TLS on `443`
    and route by SNI to the game port, and wrap the client socket in
