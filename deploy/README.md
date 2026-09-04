@@ -39,12 +39,36 @@ Coolify can do exactly that, and only that:
 - Because nothing HTTP is served, the auto-assigned `*.sslip.io` FQDN must be
   **cleared** — otherwise Traefik publicly routes an app that has no HTTP.
 
+## What is deployed
+
+Live on prodesk since 2026-09-04, and verified: a game program on a laptop
+registered in the lobby, two console clients joined a named table and played a
+full match of Rock Paper Scissors through it.
+
+| | |
+|---|---|
+| Coolify project | `TextGameServer` (`sg4tyuww53uuquexs0b3zrka`) |
+| Application | `textgame-server` (`d9apckci8wbgmuceotglgmhh`) |
+| Source | public GitHub, `tgrundtvig/TextGameServer`, branch `main` |
+| Build pack | `dockerfile` |
+| Port | `ports_exposes 4000`, `ports_mappings 4000:4000` → host `0.0.0.0:4000` |
+| FQDN | **none** — deliberately cleared; nothing HTTP is served |
+| Env | `TEXTGAME_PORT=4000` |
+
+**Reachable today** on the LAN (`192.168.1.100:4000`) and the tailnet
+(`prodesk-ubuntu:4000`). **Not reachable from the internet** — verified
+2026-09-04: `212.60.124.173:443` is open, `:4000` is closed, because the
+router forwards 80 and 443 and nothing else. Step 4 below is what changes
+that, and it is the one step that is not in Coolify.
+
 ## Setting it up
 
-**1. Coolify application.** Source: the GitHub App integration on
-`tgrundtvig/TextGameServer`, branch `main`, build pack `dockerfile`,
-auto-deploy on. The repo's `Dockerfile` builds and runs the tests; a red build
-never becomes a running server.
+**1. Coolify application.** Source: the public-GitHub source on
+`tgrundtvig/TextGameServer`, branch `main`, build pack `dockerfile`. The repo's
+`Dockerfile` builds and runs the tests; a red build never becomes a running
+server. (Auto-deploy on push needs a webhook added on the GitHub side, since
+this uses the public source rather than a GitHub App — not wired yet; deploy
+with `POST /api/v1/deploy?uuid=<app-uuid>` meanwhile.)
 
 **2. Port.** `ports_mappings: 4000:4000`. Leave the FQDN empty
 (`PATCH /api/v1/applications/{uuid}` with `{"domains": ""}`, then confirm
