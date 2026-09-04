@@ -1,0 +1,8 @@
+archetype: run
+skills:
+  - java-library
+  - github-vcs
+  - coolify-deployment
+domains:
+  - software-engineering
+  - teaching
