@@ -144,6 +144,41 @@ If 4000 is blocked, the options, cheapest first:
    domains, and it puts TLS into the code students read. Not worth it unless
    option 1 is also unavailable.
 
+## The Maven repository
+
+Separate from the game server, and the thing students actually need first: a
+static Maven repository so their poms resolve `textgame-client`.
+
+| | |
+|---|---|
+| URL | `https://maven.tobiasgrundtvig.dk` |
+| On disk | `/var/www/maven` on prodesk, `tog:tog`, dirs 755 / files 644 |
+| Served by | Caddy, a `file_server browse` block beside the six static sites |
+| Published | `textgame-parent`, `textgame-protocol`, `textgame-client` at 0.1.0 |
+| Publish with | `deploy/publish-maven.sh` (`--force` to overwrite a version) |
+
+**It is on 443**, so unlike the game port it works from any network that allows
+ordinary web traffic — which is most of the point of self-hosting it rather
+than handing out jars.
+
+Verified 2026-09-04 from an empty local repository over the public URL: a
+student project declaring only `textgame-client` compiled, pulling
+`textgame-protocol` transitively.
+
+**Published versions do not change.** Students pin a version; if the same
+number came back with different bytes, a project that built in September would
+fail in November for no visible reason. The publish script refuses to overwrite
+an existing version unless forced.
+
+**Two traps worth knowing**, both already handled in the script:
+
+- `rsync -a` copies the *staging directory's* mode onto the web root. The
+  staging dir is a `mktemp -d`, which is `700`, so the whole repo silently
+  becomes unreadable by Caddy — every artifact answers `403` while looking
+  perfectly fine over SSH. The script uses `rsync -rlt --chmod=D755,F644`.
+- The Caddyfile serves six live public domains. Change it with a backup and
+  `caddy validate` first, then `systemctl reload` — never restart.
+
 ## Operating it
 
 ```bash

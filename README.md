@@ -105,10 +105,41 @@ one and **type that table's name** in the other — table names are unique
 server-wide, so typing one at any lobby prompt jumps straight there. Both type
 `ready`, and the match starts when everybody has.
 
+## For students
+
+Students do not build this repo. They depend on `textgame-client`, which is
+published to a Maven repository, and get both the framework and the ready-made
+player client from that one dependency:
+
+```xml
+<repositories>
+    <repository>
+        <id>tobiasgrundtvig</id>
+        <url>https://maven.tobiasgrundtvig.dk</url>
+    </repository>
+</repositories>
+
+<dependencies>
+    <dependency>
+        <groupId>textgame</groupId>
+        <artifactId>textgame-client</artifactId>
+        <version>0.1.0</version>
+    </dependency>
+</dependencies>
+```
+
+`textgame-protocol` comes transitively; nothing else is needed, and there is no
+jar to download or classpath to set. `template/` is a ready-to-copy Maven
+project with the two classes written and a working game in them.
+
+Publishing a new version: `deploy/publish-maven.sh`.
+
 ## Documentation
 
 - **`DESIGN.md`** — the settled design and the reasoning behind it, including
   the decision log. Read this before changing anything.
 - **`NEXT-SESSION.md`** — implementation state, where the interesting code is,
   and what is left.
-- **`deploy/`** — running it as an always-on server.
+- **`deploy/`** — running it as an always-on server, and publishing the
+  student-facing artifact.
+- **`template/`** — the project students copy. Danish, because the course is.

@@ -102,14 +102,16 @@ the harnesses. Anything new should reuse them rather than grow a third style.
 Nothing blocks a first lesson. In rough order of value:
 
 1. **Run it with a real class.** Everything below is guesswork until then, particularly the
-   two-minute idle timeout.
-2. **A README for students** — the two classes, the five rules from `DESIGN.md` §8, and how to
-   point `GameServer.connect` at the class server. `DESIGN.md` is written for whoever maintains
-   this, not for a first-semester student.
-3. **Spectators** and **reconnecting** — the two open questions in `DESIGN.md` §11.
-4. **A project template** students can clone: a `pom.xml` depending on `textgame-client`, and
-   the two classes with the bodies missing.
-5. **`git init`.** Still not a repository.
+   two-minute idle timeout — and whether the school network can reach the game port at all
+   (`deploy/README.md`).
+2. **Spectators** and **reconnecting** — the two open questions in `DESIGN.md` §11.
+3. **Fold the template into the course material** — `template/` is written and works, in
+   Danish. It wants copying into `DAT-GBG-DA-E26AB` under the week it is taught, which is
+   week 40 at the earliest: `implements Game` needs interfaces, and the plan has
+   inheritance/polymorphism in weeks 39–41. After the autumn break (43+) is the comfortable
+   slot.
+4. **A longer written guide**, if the template's README turns out not to be enough. Worth
+   waiting for a real lesson before writing more.
 
 ### Smaller things noticed while building
 
