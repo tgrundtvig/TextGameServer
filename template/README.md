@@ -10,32 +10,48 @@ resten klarer biblioteket.
    IntelliJ henter selv biblioteket ned. Første gang tager det et øjeblik.
 3. **Omdøb de to klasser** til noget, der passer til dit spil. Højreklik på
    klassenavnet → Refactor → Rename. `MyGame` og `MyGameMatch` skal begge
-   omdøbes.
+   omdøbes. `Spiller` skal du lade være.
+
+Der ligger tre filer: `MyGame` og `MyGameMatch` er **dit spil**, og `Spiller`
+er bare en grøn pil, der starter spiller-programmet.
 
 ## Sådan spiller du
 
-Du skal bruge **tre vinduer**: ét til spillet og ét til hver spiller.
+Du skal have **flere programmer i gang på én gang**: dit spil, og én spiller for
+hver, der er med. I IntelliJ bliver de til hver sin fane nederst i Run-vinduet.
 
-1. **Start en server.** Under udviklingen kører du din egen:
+1. **Start dit spilprogram** — grøn pil ud for `main` i `MyGame`. Nu står dit
+   spil i lobbyen på klasseserveren, og alle kan se det.
 
-   ```
-   java -jar textgame-server.jar 4000
-   ```
+2. **Start en spiller** — grøn pil ud for `main` i `Spiller`.
 
-2. **Start dit spilprogram** — grøn pil ud for `main` i `MyGame`. Nu står dit
-   spil i lobbyen.
+   Skal I være flere på den samme computer, skal IntelliJ have lov at køre
+   `Spiller` mere end én gang: **Run → Edit Configurations…**, vælg `Spiller`,
+   og sæt flueben i **Allow multiple instances** (den ligger under
+   *Modify options*). Uden det flueben genstarter IntelliJ bare den spiller,
+   der allerede kører.
 
-3. **Start en spiller** — højreklik på `PlayerClient` i
-   `External Libraries → textgame-client → textgame.player` → Run.
-   Gør det én gang for hver spiller. Du kan også køre den fra en terminal:
+   Du skriver dine svar nede i Run-vinduet, præcis som når du bruger en
+   `Scanner`.
 
-   ```
-   mvn compile exec:java -Dexec.mainClass=textgame.player.PlayerClient
-   ```
+3. **I hvert spiller-vindue**: skriv et navn, vælg spillet, og lav et bord i det
+   ene vindue. I det andet skriver du **bordets navn** ved "Which game?" — så
+   hopper du direkte derhen. Skriv `ready` begge steder, og spillet går i gang.
 
-I hvert spiller-vindue: skriv et navn, vælg spillet, og lav et bord i det ene
-vindue. I det andet skriver du **bordets navn** ved "Which game?" — så hopper du
-direkte derhen. Skriv `ready` begge steder, og spillet går i gang.
+Serveren kører hele tiden, så du skal ikke selv starte noget. Den står som
+`game.tobiasgrundtvig.dk` i `MyGame` og i `Spiller`.
+
+## Hvis I spiller et andet sted
+
+Begge filer skal pege det samme sted hen. Er det din underviser, der kører
+serveren i klasselokalet, skal du bytte adressen ud to steder:
+
+```java
+GameServer.connect("game.tobiasgrundtvig.dk", 4000)                   // i MyGame
+PlayerClient.main(new String[] {"game.tobiasgrundtvig.dk", "4000"});  // i Spiller
+```
+
+Det er de eneste to steder, adressen står.
 
 ## De fem regler
 

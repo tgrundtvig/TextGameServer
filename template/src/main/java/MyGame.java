@@ -31,9 +31,9 @@ public class MyGame implements Game {
     }
 
     public static void main(String[] args) {
-        // "localhost" mens du bygger spillet alene.
-        // Byt til klasseserveren, når I skal spille hinandens spil.
-        GameServer.connect("localhost", 4000)
+        // Klasseserveren. Kører hele tiden — du skal ikke selv starte noget.
+        // Spiller I et andet sted, skal adressen skiftes her OG i Spiller.
+        GameServer.connect("game.tobiasgrundtvig.dk", 4000)
                   .host(new MyGame());
     }
 }
