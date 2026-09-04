@@ -13,6 +13,7 @@ import java.util.concurrent.LinkedBlockingQueue;
 import textgame.protocol.Message;
 import textgame.protocol.MessageChannel;
 import textgame.protocol.Names;
+import textgame.internal.PasswordFile;
 import textgame.protocol.MessageType;
 import textgame.protocol.ProtocolException;
 
@@ -81,6 +82,10 @@ public final class PlayerClient {
         }
         out.println("Connected to class server.");
         startReaders();
+        String password = PasswordFile.read();
+        if (password != null) {
+            send(Message.withText(MessageType.PASSWORD, password));
+        }
         prompt("Your name? ");
 
         try {

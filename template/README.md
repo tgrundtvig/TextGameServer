@@ -15,10 +15,37 @@ resten klarer biblioteket.
 Der ligger tre filer: `MyGame` og `MyGameMatch` er **dit spil**, og `Spiller`
 er bare en grøn pil, der starter spiller-programmet.
 
+## Kodeordet
+
+Klasseserveren kræver et kodeord, så det ikke er hele internettet, der kan koble
+sig på jeres spil.
+
+**Lav en fil, der hedder `kodeord.txt`**, i projektmappen — samme sted som
+`pom.xml` ligger. I filen skriver du det ord, du har fået af din underviser, og
+ikke andet. Så finder programmet det selv; du skal ikke kalde noget.
+
+```
+mit-spil/
+├── pom.xml
+├── kodeord.txt      <- den her, som du selv laver
+└── src/
+```
+
+**Kodeordet må ikke på GitHub.** Et offentligt repo kan alle læse, og så kan
+alle koble sig på. Derfor står `kodeord.txt` i `.gitignore` — så tager git den
+ikke med, heller ikke hvis du skriver `git add .`. Tjek det med `git status`:
+filen skal *ikke* stå på listen.
+
+Det er derfor kodeordet ligger i en fil og ikke i koden: koden deler du, filen
+beholder du.
+
 ## Sådan spiller du
 
 Du skal have **flere programmer i gang på én gang**: dit spil, og én spiller for
 hver, der er med. I IntelliJ bliver de til hver sin fane nederst i Run-vinduet.
+
+0. **Lav `kodeord.txt`** først, hvis du ikke har gjort det (se ovenfor). Uden
+   den bliver du afvist, og programmet skriver hvorfor.
 
 1. **Start dit spilprogram** — grøn pil ud for `main` i `MyGame`. Nu står dit
    spil i lobbyen på klasseserveren, og alle kan se det.

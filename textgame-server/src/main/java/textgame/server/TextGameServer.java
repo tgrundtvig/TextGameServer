@@ -2,6 +2,8 @@ package textgame.server;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Set;
@@ -31,15 +33,18 @@ public final class TextGameServer implements AutoCloseable {
     private final ServerSocket listener;
     private final Hub hub;
     private final long idleSeconds;
+    private final String password;
     private final ExecutorService connections = Executors.newVirtualThreadPerTaskExecutor();
     private final Set<Endpoint> live = ConcurrentHashMap.newKeySet();
     private final CountDownLatch stopped = new CountDownLatch(1);
     private volatile boolean running = true;
 
-    private TextGameServer(ServerSocket listener, long idleSeconds, int maxTablesPerGame) {
+    private TextGameServer(ServerSocket listener, long idleSeconds, int maxTablesPerGame,
+                           String password) {
         this.listener = listener;
         this.hub = new Hub(maxTablesPerGame);
         this.idleSeconds = idleSeconds;
+        this.password = password;
     }
 
     public static void main(String[] args) throws Exception {
@@ -65,11 +70,38 @@ public final class TextGameServer implements AutoCloseable {
     public static TextGameServer start(int port) throws IOException {
         long idleSeconds = Long.getLong("textgame.idleSeconds", 120);
         int maxTables = Integer.getInteger("textgame.maxTablesPerGame", 20);
+        String password = configuredPassword();
         ServerSocket listener = new ServerSocket(port);
-        TextGameServer server = new TextGameServer(listener, idleSeconds, maxTables);
+        TextGameServer server = new TextGameServer(listener, idleSeconds, maxTables, password);
+        System.out.println(password == null
+                ? "[server] no password set — anybody who can reach this port can join"
+                : "[server] a class password is required to join");
         Thread.ofVirtual().name("accept").start(server::acceptLoop);
         Thread.ofVirtual().name("idle-watch").start(server::idleLoop);
         return server;
+    }
+
+    /**
+     * The shared class password, from {@code TEXTGAME_PASSWORD} or
+     * {@code -Dtextgame.password}, or {@code null} for a server anybody may join.
+     *
+     * <p>The environment variable comes first because that is what a hosting platform sets,
+     * and it keeps the password out of the process list where a command line would put it.
+     */
+    private static String configuredPassword() {
+        String fromEnv = System.getenv("TEXTGAME_PASSWORD");
+        if (fromEnv != null && !fromEnv.isBlank()) {
+            return fromEnv.strip();
+        }
+        String fromProperty = System.getProperty("textgame.password");
+        return fromProperty == null || fromProperty.isBlank() ? null : fromProperty.strip();
+    }
+
+    /** Compared without an early exit, so the answer takes the same time whatever is wrong. */
+    private boolean passwordMatches(String offered) {
+        return offered != null && MessageDigest.isEqual(
+                offered.strip().getBytes(StandardCharsets.UTF_8),
+                password.getBytes(StandardCharsets.UTF_8));
     }
 
     /** The port actually in use, which matters when you asked for 0. */
@@ -149,6 +181,7 @@ public final class TextGameServer implements AutoCloseable {
         live.add(out);
         HostedGame game = null;
         PlayerSession player = null;
+        boolean allowedIn = (password == null);
         try {
             while (true) {
                 Message message;
@@ -161,6 +194,27 @@ public final class TextGameServer implements AutoCloseable {
                 }
                 if (message == null || message.type() == MessageType.QUIT) {
                     break;
+                }
+                if (!allowedIn) {
+                    // Nothing at all happens on this connection until the password is right.
+                    if (message.type() != MessageType.PASSWORD) {
+                        out.goodbye("This server needs the class password, and none was sent."
+                                + " Put it in a file called kodeord.txt next to your pom.xml,"
+                                + " then start the program again.");
+                        break;
+                    }
+                    if (!passwordMatches(message.text())) {
+                        out.goodbye("That is not the class password. Check kodeord.txt next to"
+                                + " your pom.xml — it should hold the word your teacher gave"
+                                + " you, and nothing else.");
+                        break;
+                    }
+                    allowedIn = true;
+                    continue;
+                }
+                if (message.type() == MessageType.PASSWORD) {
+                    // A client that has a password may send it to a server that wants none.
+                    continue;
                 }
                 if (game != null) {
                     hub.fromGame(game, message);

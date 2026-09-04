@@ -47,6 +47,12 @@ public final class HostRuntime {
     /** Registers the game and then reads messages until the server or the student stops it. */
     public void run() {
         checkGame();
+        // Before anything else, if there is a class password to send. A server without one
+        // ignores it, so this is safe whether or not the server asks.
+        String password = PasswordFile.read();
+        if (password != null) {
+            send(Message.withText(MessageType.PASSWORD, password));
+        }
         send(Message.withText(MessageType.REGISTER, String.valueOf(game.minPlayers()),
                 String.valueOf(game.maxPlayers()), game.name()));
         send(Message.withText(MessageType.DESCRIBE, game.description()));
@@ -122,6 +128,14 @@ public final class HostRuntime {
                 }
             }
             case ERR -> System.err.println("[textgame] the server says: " + message.text());
+            case BYE -> {
+                System.err.println("[textgame] the server closed the connection: "
+                        + message.text());
+                if (PasswordFile.read() == null) {
+                    System.err.println("[textgame] " + PasswordFile.howToFixIt());
+                }
+                stopped = true;
+            }
             default -> System.err.println("[textgame] ignoring unexpected message: " + message);
         }
     }

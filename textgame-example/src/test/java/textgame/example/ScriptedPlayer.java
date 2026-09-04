@@ -28,7 +28,12 @@ final class ScriptedPlayer implements AutoCloseable {
             new ArrayList<>());
 
     ScriptedPlayer(int port, String name) throws IOException {
-        this.name = name;
+        this(port, name, null);
+    }
+
+    /** {@code password} null means send none; {@code name} null means do not introduce yourself. */
+    ScriptedPlayer(int port, String name, String password) throws IOException {
+        this.name = name == null ? "(anonymous)" : name;
         this.channel = MessageChannel.connect("localhost", port);
         Thread.ofVirtual().name("player-" + name).start(() -> {
             try {
@@ -41,7 +46,12 @@ final class ScriptedPlayer implements AutoCloseable {
                 // The connection ended; awaiting anything more will time out and say so.
             }
         });
-        send(Message.withText(MessageType.NAME, name));
+        if (password != null) {
+            send(Message.withText(MessageType.PASSWORD, password));
+        }
+        if (name != null) {
+            send(Message.withText(MessageType.NAME, name));
+        }
     }
 
     String playerName() {

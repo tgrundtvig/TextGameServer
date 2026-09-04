@@ -105,6 +105,15 @@ public enum MessageType {
     /** {@code MATCH_END <text...>} */
     MATCH_END(0, true),
 
+    // ---- anyone -> server, before anything else ------------------------------
+    /**
+     * {@code PASSWORD <text...>} — the shared class password, sent as the first message.
+     *
+     * <p>Only meaningful when the server was started with one. A server without a password
+     * ignores it, so a client can always send one it has.
+     */
+    PASSWORD(0, true),
+
     // ---- server -> anyone ---------------------------------------------------
     /** {@code ERR <text...>} — the last request was rejected; the text says why. */
     ERR(0, true),

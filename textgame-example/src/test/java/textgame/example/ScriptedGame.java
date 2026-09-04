@@ -23,6 +23,12 @@ final class ScriptedGame implements AutoCloseable {
 
     ScriptedGame(int port, String name, int min, int max, String description)
             throws IOException {
+        this(port, name, min, max, description, null);
+    }
+
+    /** {@code password} null means send none, which a password-protected server refuses. */
+    ScriptedGame(int port, String name, int min, int max, String description, String password)
+            throws IOException {
         this.channel = MessageChannel.connect("localhost", port);
         Thread.ofVirtual().name("game-" + name).start(() -> {
             try {
@@ -34,6 +40,10 @@ final class ScriptedGame implements AutoCloseable {
                 // The connection ended; the test will notice when it waits for something.
             }
         });
+        // Order matters: nothing is listened to before the password.
+        if (password != null) {
+            send(Message.withText(MessageType.PASSWORD, password));
+        }
         send(Message.withText(MessageType.REGISTER, String.valueOf(min), String.valueOf(max),
                 name));
         send(Message.withText(MessageType.DESCRIBE, description));
