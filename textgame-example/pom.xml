@@ -10,4 +10,55 @@
   </parent>
   <artifactId>textgame-example</artifactId>
   <dependencies><dependency><groupId>textgame</groupId><artifactId>textgame-client</artifactId></dependency><dependency><groupId>textgame</groupId><artifactId>textgame-server</artifactId></dependency><dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId></dependency></dependencies>
+  <build>
+    <plugins>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-jar-plugin</artifactId>
+        <version>3.4.2</version>
+        <configuration>
+          <archive>
+            <manifest>
+              <mainClass>textgame.example.RunExample</mainClass>
+            </manifest>
+          </archive>
+        </configuration>
+      </plugin>
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-shade-plugin</artifactId>
+        <version>3.6.0</version>
+        <executions>
+          <execution>
+            <phase>package</phase>
+            <goals><goal>shade</goal></goals>
+            <configuration>
+              <!-- One jar, so an example can be run from anywhere with no classpath. -->
+              <finalName>textgame-example</finalName>
+              <shadedArtifactAttached>false</shadedArtifactAttached>
+              <createDependencyReducedPom>false</createDependencyReducedPom>
+              <artifactSet>
+                <includes>
+                  <include>textgame:textgame-protocol</include>
+                  <include>textgame:textgame-client</include>
+                </includes>
+              </artifactSet>
+              <filters>
+                <!-- Only the dependencies lose their manifests; this jar keeps its own,
+                     which is what carries the Main-Class. -->
+                <filter>
+                  <artifact>textgame:textgame-protocol</artifact>
+                  <excludes><exclude>META-INF/**</exclude></excludes>
+                </filter>
+                <filter>
+                  <artifact>textgame:textgame-client</artifact>
+                  <excludes><exclude>META-INF/**</exclude></excludes>
+                </filter>
+              </filters>
+            </configuration>
+          </execution>
+        </executions>
+      </plugin>
+    </plugins>
+  </build>
 </project>

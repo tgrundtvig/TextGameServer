@@ -76,9 +76,34 @@ public static void main(String[] args) {
 }
 ```
 
-Run the examples in `textgame-example` against a local server to see it work:
-`NumberDuel`, `RockPaperScissors` (simultaneous moves) and `Impostor`
-(secrets told to one player).
+To try the worked examples without writing that `main` yourself, there is a
+launcher — one self-contained jar, any example, any server:
+
+```bash
+java -jar textgame-example/target/textgame-example.jar NumberDuel
+java -jar textgame-example/target/textgame-example.jar RockPaperScissors myserver 4000
+```
+
+`NumberDuel` (2–4, turn by turn), `RockPaperScissors` (2–6, simultaneous moves
+via `askAllChoice`) and `Impostor` (3–8, secrets told to one player via
+`only`/`without`).
+
+### Playing a game end to end
+
+Three terminals: one for the game program, one per player.
+
+```bash
+# 1 — the game program (this is what a student runs from their IDE)
+java -jar textgame-example/target/textgame-example.jar NumberDuel localhost 4000
+
+# 2 and 3 — two players
+java -jar textgame-client/target/textgame-client.jar localhost 4000
+```
+
+In each player terminal: type a name, pick the game, then **create a table** in
+one and **type that table's name** in the other — table names are unique
+server-wide, so typing one at any lobby prompt jumps straight there. Both type
+`ready`, and the match starts when everybody has.
 
 ## Documentation
 
