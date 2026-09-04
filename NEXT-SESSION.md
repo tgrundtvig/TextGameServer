@@ -124,6 +124,12 @@ Nothing blocks a first lesson. In rough order of value:
 
 ---
 
+## Næste session: web-spilleren
+
+`WEB-PLAYER.md` er planen — hvorfor, formen, hvad der allerede er besluttet, hvad der skal
+afgøres undervejs, og en byggerækkefølge i otte skiver, hvor hver ender i noget, der kan
+vises frem. Alt om infrastrukturen deri er efterprøvet 2026-09-04, ikke antaget.
+
 ## Design document
 
 The formatted version lives at
