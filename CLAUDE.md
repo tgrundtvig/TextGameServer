@@ -1,53 +1,68 @@
-# TextGameServer
+# Claude Code — TextGameServer
 
-A server for turn-based, text-based multiplayer games, written for **first-semester Java
-students** to build games against. Java 21, Maven, no dependencies.
+A server for turn-based, text-based multiplayer games, built so a
+first-semester Java student writes a networked game as one method and
+never touches a socket. Java 21, Maven, no dependencies.
 
-**Read `DESIGN.md` before changing anything.** It is the settled design and the source of
-truth. `NEXT-SESSION.md` has current implementation state and the suggested build order.
+**Status (verified 2026-09-10):** built; 0.5.0 published to
+`maven.tobiasgrundtvig.dk` and live on prodesk as
+`game.tobiasgrundtvig.dk:4000`; 113 tests green; not yet used by a real
+class.
 
-## The three things that shape every decision here
+## Where things are
 
-1. **The audience is first-semester students.** Simplicity of the student-facing API beats
-   idiomatic Java, every time. No callbacks, no lambdas, no generics, no threads, no
-   exceptions in anything they write. If a change makes the framework nicer but the student
-   API harder, it is the wrong change.
-2. **The server does networking and logistics only.** No game rules, and it never runs student
-   code. Games run on students' own laptops and dial out as TCP clients, exactly like players
-   do. All input validation and re-prompting happens client-side, in the student's JVM.
-3. **Blocking, not event-driven.** A game is one `play(Room)` method driven by ordinary loops,
-   where `p.ask("...")` blocks like a `Scanner`. The framework absorbs the resulting
-   complexity — disconnects, timeouts, threads — so students never see it.
+- `DESIGN.md` — the settled design and decision log. Source of truth;
+  read before changing anything.
+- `NEXT-SESSION.md` — state, the interesting code, what is left;
+  `WEB-PLAYER.md` — the browser-player plan.
+- `deploy/README.md` — prodesk, the Maven repository, the server log.
+- `knowledge/_index.md` — orientation; `STARTUP.md` — the handoff.
+- Code: `textgame-client/src/main/java/textgame/` is the student API,
+  `internal/PlayerImpl.ask` the whole design; `textgame-server/.../Hub`
+  the lobby; `textgame-protocol/.../MessageType` the wire format;
+  `template/` what students copy.
 
-## Student-facing API, in full
+## Rules of this codebase
 
-```java
-public interface Game  { String name(); String description();
-                         int minPlayers(); int maxPlayers(); Match newMatch(); }
-public interface Match { void play(Room room); }
+1. Student-API simplicity beats idiomatic Java: no callbacks, lambdas,
+   generics, threads or exceptions in what students write — they are
+   first-semester.
+2. The server does networking and logistics only — no game rules, never
+   student code; games run on students' laptops and dial in as TCP
+   clients.
+3. Blocking, not event-driven: `play(Room)` is ordinary loops and
+   `p.ask` blocks like a `Scanner`; the framework absorbs disconnects,
+   timeouts and threads.
+4. Validation and re-prompting happen in the student's JVM; the server
+   routes raw lines.
+5. No third-party dependencies in `protocol`, `server` or `client`;
+   tests may use JUnit.
+6. An error a student can hit says what to do, in plain language —
+   never a bare stack trace or an internal type name.
+7. Keep `textgame-client` readable in one sitting; every method there
+   is one somebody has to teach.
+8. A `Game` takes the plain name (`NumberDuel`), its `Match` the suffix
+   (`NumberDuelMatch`), so examples and template read alike.
+9. A published version never changes bytes — bump the number; students
+   pin it.
+10. A design change updates `DESIGN.md` and its formatted artifact
+    together.
+
+## Session start and end
+
+Run `/wakeup` at session start and `/hibernate` at the end. They
+delegate to `/do wakeup` / `/do hibernate` against the foundation at
+`$KNOWLEDGE_FOUNDATION_PATH`. The hooks in `.claude/settings.json`
+inject the session pack (`kt wakeup`) at `SessionStart` and capture
+the session transcript.
+
+If `/wakeup` says the env var is unset, add this to your shell
+profile and restart your shell:
+
+```bash
+export KNOWLEDGE_FOUNDATION_PATH=~/Development/GitHub/knowledge-foundation
 ```
 
-Plus `Player` (`name`, `tell`, `ask`, `askInt`, `askDouble`, `askYesNo`, `askChoice`,
-`askChoiceIndex`), `Room` (`players`, `tellAll`, `only`, `without`, `askAll*`) and `Answers`.
-Full signatures in `DESIGN.md` §3–4.
+## Profile
 
-Naming convention in examples and templates: the `Game` takes the plain name (`NumberDuel`),
-the `Match` takes the suffix (`NumberDuelMatch`).
-
-## Modules
-
-| Module | Contents |
-|---|---|
-| `textgame-protocol` | Wire format. Internal to both sides. |
-| `textgame-server` | The hosted server: lobby, named tables, routing. |
-| `textgame-client` | `Game`, `Match`, `Player`, `Room`, `Answers`, `GameServer`, and the ready-made console player client. **The only module students depend on or read.** |
-| `textgame-example` | Worked example games. |
-
-## Conventions
-
-- Java 21. Virtual threads for connection and match handling.
-- No third-party dependencies in `protocol`, `server` or `client`. Tests may use JUnit.
-- Error messages that a student can hit must say what to do about it, in plain language —
-  never a bare stack trace or a framework-internal type name.
-- Keep `textgame-client` small enough to read in one sitting. Resist adding to the student
-  API; every method there is a method someone has to teach.
+`.profile.yml`: `archetype: run`; java-library, github-vcs, coolify-deployment; software-engineering, teaching.
