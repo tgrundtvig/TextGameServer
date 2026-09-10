@@ -14,3 +14,5 @@ nbproject/
 
 # OS
 .DS_Store
+# Foundation session-logger state (per-session)
+sessions/state/
