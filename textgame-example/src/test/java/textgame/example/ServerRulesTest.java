@@ -3,9 +3,11 @@ package textgame.example;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.net.Socket;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import textgame.protocol.Message;
+import textgame.protocol.MessageChannel;
 import textgame.protocol.MessageType;
 import textgame.server.TextGameServer;
 
@@ -87,6 +89,79 @@ class ServerRulesTest {
             Message reply = raw.receive();
             assertEquals(MessageType.ERR, reply.type());
             assertTrue(reply.text().contains("a game program sends REGISTER"), reply.text());
+        }
+    }
+
+    // ---- machines that vanish --------------------------------------------------
+    //
+    // A laptop that reboots, sleeps or drops off the wifi never closes its connection, so the
+    // server's read simply stops getting anything. Keepalive turns that silence into an error
+    // (MessageChannelTest checks it is on); once the machine is back it answers the first
+    // probe with a reset. A test cannot pull a cable, but it can send exactly that reset, by
+    // closing a socket with linger zero — so what is tested here is what the server does the
+    // moment the kernel reports the connection dead.
+
+    /** A connection whose close is a reset rather than a goodbye, like a rebooted machine. */
+    private static MessageChannel abruptConnection(int port) throws Exception {
+        Socket socket = new Socket("localhost", port);
+        socket.setSoLinger(true, 0);
+        return new MessageChannel(socket);
+    }
+
+    @Test
+    void aPlayerWhoseMachineDiesGetsTheirNameBack() throws Exception {
+        server = TextGameServer.start(0, null);
+        int port = server.port();
+
+        MessageChannel firstMani = abruptConnection(port);
+        firstMani.send(Message.withText(MessageType.NAME, "mani"));
+        assertEquals(MessageType.NAME_OK, firstMani.receive().type());
+
+        // While that connection lives, the name is taken.
+        try (ScriptedPlayer sameName = new ScriptedPlayer(port, "mani")) {
+            assertTrue(sameName.await(MessageType.ERR).text().contains("already called mani"));
+        }
+
+        firstMani.close();
+
+        // And once it is dead, the name comes back — without anybody restarting the server.
+        boolean freed = false;
+        for (int attempt = 0; attempt < 100 && !freed; attempt++) {
+            try (ScriptedPlayer mani = new ScriptedPlayer(port, "mani")) {
+                freed = mani.await(MessageType.NAME_OK, MessageType.ERR).type()
+                        == MessageType.NAME_OK;
+            }
+            if (!freed) {
+                Thread.sleep(50);
+            }
+        }
+        assertTrue(freed, "mani's name was still taken five seconds after the machine died");
+    }
+
+    @Test
+    void aGameWhoseMachineDiesLeavesTheLobby() throws Exception {
+        server = TextGameServer.start(0, null);
+        int port = server.port();
+
+        MessageChannel blackjack = abruptConnection(port);
+        blackjack.send(Message.withText(MessageType.REGISTER, "2", "4", "Blackjack"));
+        assertEquals(MessageType.REGISTERED, blackjack.receive().type());
+
+        try (ScriptedPlayer mani = new ScriptedPlayer(port, "mani")) {
+            mani.await(MessageType.NAME_OK);
+            mani.say(MessageType.LIST_GAMES);
+            assertEquals("1", mani.await(MessageType.GAME_LIST).arg(0));
+
+            blackjack.close();
+
+            String listed = "1";
+            for (int attempt = 0; attempt < 100 && !listed.equals("0"); attempt++) {
+                Thread.sleep(50);
+                mani.say(MessageType.LIST_GAMES);
+                listed = mani.await(MessageType.GAME_LIST).arg(0);
+            }
+            assertEquals("0", listed, "Blackjack was still in the lobby five seconds after"
+                    + " the machine running it died");
         }
     }
 }

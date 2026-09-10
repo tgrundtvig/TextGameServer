@@ -61,11 +61,11 @@ final class Hub {
     }
 
     /** The game program stopped: its tables go with it, and its players go back to the lobby. */
-    synchronized void unregister(HostedGame game) {
+    synchronized void unregister(HostedGame game, String why) {
         if (games.remove(game.id()) == null) {
             return;
         }
-        System.out.println("[server] " + game.name() + " is no longer hosted");
+        System.out.println("[server] " + game.name() + " is no longer hosted: " + why);
         for (Table table : List.copyOf(game.tables())) {
             endMatch(table, game.name() + " was taken down while you were playing.");
             for (PlayerSession p : List.copyOf(table.seated())) {
@@ -149,13 +149,15 @@ final class Hub {
         PlayerSession player = new PlayerSession(newId("p"), out, wanted);
         playersByKey.put(key(wanted), player);
         out.send(Message.withText(MessageType.NAME_OK, wanted));
+        System.out.println("[server] " + wanted + " joined from " + out.peer());
         return player;
     }
 
-    synchronized void disconnect(PlayerSession player) {
+    synchronized void disconnect(PlayerSession player, String why) {
         if (playersByKey.remove(key(player.name())) == null) {
             return;
         }
+        System.out.println("[server] " + player.name() + " left: " + why);
         leaveTable(player, player.name() + " disconnected", false);
     }
 

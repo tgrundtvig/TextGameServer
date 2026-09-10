@@ -197,6 +197,9 @@ public final class TextGameServer implements AutoCloseable {
         HostedGame game = null;
         PlayerSession player = null;
         boolean allowedIn = (password == null);
+        // Why the connection ended, for the log: the one thing there is to look at when a
+        // student asks why their game is still in the lobby, or is not.
+        String ending = "closed the connection";
         try {
             while (true) {
                 Message message;
@@ -207,7 +210,11 @@ public final class TextGameServer implements AutoCloseable {
                     out.err("The server could not read that: " + e.getMessage());
                     continue;
                 }
-                if (message == null || message.type() == MessageType.QUIT) {
+                if (message == null) {
+                    break;
+                }
+                if (message.type() == MessageType.QUIT) {
+                    ending = "said goodbye";
                     break;
                 }
                 if (!allowedIn) {
@@ -249,13 +256,15 @@ public final class TextGameServer implements AutoCloseable {
                 }
             }
         } catch (IOException | UncheckedIOException e) {
-            // The far end went away. The cleanup below is the same either way.
+            // The far end went away — or, when keepalive gave up on it, never said so. The
+            // cleanup below is the same either way; only the log line differs.
+            ending = running ? "connection lost (" + e.getMessage() + ")" : "server stopping";
         } finally {
             if (game != null) {
-                hub.unregister(game);
+                hub.unregister(game, ending);
             }
             if (player != null) {
-                hub.disconnect(player);
+                hub.disconnect(player, ending);
             }
             live.remove(out);
             out.close();

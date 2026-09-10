@@ -329,6 +329,7 @@ Promises the framework makes, so a first-semester student never sees these:
 | **The student's game crashes** | Ends that match with a message to its players, prints the stack trace to **the student's own console**, touches nothing else. Other tables in the same program keep running. |
 | **Concurrency** | Each table runs on its own thread inside the student's program, but with a private `Match` and no shared state there is nothing to synchronise. The word "thread" never has to come up. |
 | **The wire protocol** | One UTF-8 message per line over TCP, framed and escaped by the framework. Internal on both sides. |
+| **A machine vanishes** | A laptop that reboots, sleeps or loses its wifi never says goodbye, so the server would otherwise wait for it forever — the game stuck in the lobby, the name stuck as taken. TCP keepalive on every connection notices the silence in about a minute, at once if the machine is back, and from then on it is an ordinary disconnect. |
 
 ---
 
@@ -419,6 +420,7 @@ Alternatives considered seriously and rejected, recorded so the reasoning surviv
 | **The server rendering the lobby as text** | **Rejected.** A dumb terminal is less code on the client, but the numbered menus and the re-prompting belong wherever validation already lives — in the client — and it keeps the server free of anything that formats. The server sends entries; the client draws menus. |
 | **Buffering a player's answer when nobody asked** | **Rejected** in code as well as on paper: an `ANSWER` arriving unprompted is refused with *"It's not your turn."* and dropped. |
 | **Uploading student games to the server** | **Never viable.** Sandboxing untrusted code is a project in itself, and a crash would be everyone's problem. |
+| **A heartbeat message in the protocol** (server pings, clients pong) | **Deferred.** It would notice a vanished machine even with data stuck in flight, but it changes the wire format and both clients, and older clients would have to be tolerated. TCP keepalive needs no protocol change and covers the case that actually happened: a connection sitting idle. Revisit if the retransmission case — roughly fifteen minutes on Linux — ever bites in practice. |
 
 ---
 
@@ -446,3 +448,8 @@ Two of the five have been decided while building; the rest still do not block an
 - **Twenty tables per game program** (`-Dtextgame.maxTablesPerGame`), so a runaway loop cannot
   spawn a thousand. Server-side, not student-facing; the twenty-first `create` is refused with
   a message naming the limit.
+- **A vanished machine is noticed by TCP keepalive**, not by anything in the protocol: a probe
+  after 30 seconds of silence, then every 10 seconds, three strikes. Found by the first student
+  to use it, whose Blackjack stayed in the lobby across a reboot and whose name stayed taken.
+  Keepalive watches only idle connections; data stuck in flight falls back to TCP's own
+  retransmission limit, which is long but finite.

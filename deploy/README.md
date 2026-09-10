@@ -107,15 +107,20 @@ tailnet:
 nc -vz game.tobiasgrundtvig.dk 4000
 ```
 
-## The open question: can the school reach port 4000?
+## Can the school reach port 4000? Yes — verified 2026-09-10
 
-**Unknown, and deliberately untested until it can be tested for real.** Many
-school and campus networks allow outbound `443` and `80` and block everything
-else. There is no clean way around that here: `443` on this host belongs to
-Caddy, serving six public domains, and one public IP cannot lend it out.
+Tested from the school wifi (SSID `EK`, gateway `10.136.128.1`): `nc -vz` to
+`game.tobiasgrundtvig.dk 4000` succeeded, and a raw line sent to it came back
+with the server's own password refusal — so the whole path works, not just the
+handshake. `443` was checked alongside as a control. The web player in
+`WEB-PLAYER.md` is therefore a convenience, not a necessity.
 
-So the port is open and the question is parked. **Test it from the actual
-school network** — one command, from a machine on the school wifi:
+The worry was that many school and campus networks allow outbound `443` and
+`80` and block everything else, and there is no clean way around that here:
+`443` on this host belongs to Caddy, serving six public domains, and one public
+IP cannot lend it out. That worry did not materialise for this network. If a
+different network is ever in play, the check is one command from a machine on
+its wifi:
 
 ```bash
 nc -vz game.tobiasgrundtvig.dk 4000        # or: telnet game.tobiasgrundtvig.dk 4000
@@ -131,7 +136,7 @@ java -jar textgame-client.jar game.tobiasgrundtvig.dk 4000
 You should get `Connected to class server.` and a lobby. If it hangs or is
 refused, the school blocks the port.
 
-If 4000 is blocked, the options, cheapest first:
+If 4000 is blocked somewhere else, the options, cheapest first:
 
 1. Use the classroom laptop server (option 1 above) during lessons and accept
    that prodesk is for home use only. This costs nothing and is already how the
@@ -187,9 +192,31 @@ docker ps --filter name=<app-id-substring>
 docker logs -f --since 10m <container>
 ```
 
-The server prints one line per game program that registers and one per
-disconnect. If a student's game vanishes from the lobby, that is the log to
-read.
+The server prints one line per game program that registers or leaves, and one
+per player joining or leaving, each with why the connection ended. If a
+student's game vanishes from the lobby, or stays there when it should not, that
+is the log to read:
+
+```
+[server] Blackjack is now hosted from /85.x.x.x:51234
+[server] mani joined from /85.x.x.x:51236
+[server] mani left: connection lost (Connection timed out)
+[server] Blackjack is no longer hosted: connection lost (Connection reset)
+```
+
+`said goodbye` is a clean quit, `closed the connection` a socket closed without
+one, and `connection lost (...)` is the kernel's own reason. `Connection timed
+out` means TCP keepalive gave up on a machine that vanished without closing —
+a reboot, a lid closed, a wifi drop — after about a minute of silence.
+`Connection reset` means the machine was back and refused the probe.
+
+**A vanished machine that was mid-transfer** — the server was sending to it
+when it died — is not caught by keepalive, which only watches idle
+connections. TCP's retransmission limit catches it instead, which with the
+kernel default (`net.ipv4.tcp_retries2 = 15`) takes roughly fifteen minutes.
+Lowering that to 8 brings it under two minutes; it is a per-container sysctl
+(`--sysctl net.ipv4.tcp_retries2=8`), which Coolify may or may not pass through
+in `custom_docker_run_options` — unverified, and not needed until it bites.
 
 **Redeploys drop every connected player**, and a match in progress dies with
 it — Coolify stops the old container before starting the new one. Deploy

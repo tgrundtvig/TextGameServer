@@ -7,15 +7,31 @@ import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.net.InetSocketAddress;
 import java.net.Socket;
+import java.net.SocketOption;
 import java.nio.charset.StandardCharsets;
+import jdk.net.ExtendedSocketOptions;
 
 /**
  * A socket carrying one {@link Message} per line, in UTF-8.
  *
  * <p>Sending is synchronized, so several threads may send on the same channel.
  * Receiving is not: exactly one thread should own the read loop.
+ *
+ * <p>Every channel has TCP keepalive switched on, with short timers where the platform
+ * allows. A laptop that reboots, sleeps or drops off the wifi never closes its connection,
+ * so without keepalive the other end's read would block forever — a game would stay in the
+ * lobby and a player's name would stay taken until the server was restarted. With it, the
+ * kernel probes a silent connection and reports it dead; a machine that has come back
+ * answers the first probe with a reset, so that case is noticed at once.
  */
 public final class MessageChannel implements AutoCloseable {
+
+    /** Seconds of silence before the first keepalive probe. */
+    static final int KEEPALIVE_IDLE_SECONDS = 30;
+    /** Seconds between probes once they have started. */
+    static final int KEEPALIVE_INTERVAL_SECONDS = 10;
+    /** Unanswered probes before the connection is declared dead. */
+    static final int KEEPALIVE_PROBES = 3;
 
     private final Socket socket;
     private final BufferedReader in;
@@ -23,6 +39,7 @@ public final class MessageChannel implements AutoCloseable {
 
     public MessageChannel(Socket socket) throws IOException {
         this.socket = socket;
+        keepAlive(socket);
         this.in = new BufferedReader(
                 new InputStreamReader(socket.getInputStream(), StandardCharsets.UTF_8));
         this.out = new BufferedWriter(
@@ -39,6 +56,35 @@ public final class MessageChannel implements AutoCloseable {
         } catch (IOException e) {
             socket.close();
             throw e;
+        }
+    }
+
+    /**
+     * Turns on keepalive with timers short enough to matter, so that a peer that vanished
+     * without saying goodbye is noticed in about a minute rather than never.
+     *
+     * <p>The timers are extensions (Linux, macOS, and partly Windows); where one is missing,
+     * plain keepalive stays on with the operating system's own timing, which is usually two
+     * hours — still better than forever. The probes have a second use on the client side:
+     * they keep a home router's NAT entry alive, so an idle game program does not get quietly
+     * cut off from behind.
+     *
+     * <p>Keepalive only watches an <em>idle</em> connection. If there is unacknowledged data in
+     * flight, TCP's own retransmission timer decides instead, which on Linux gives up after
+     * roughly fifteen minutes. Long, but finite.
+     */
+    static void keepAlive(Socket socket) throws IOException {
+        socket.setKeepAlive(true);
+        trySet(socket, ExtendedSocketOptions.TCP_KEEPIDLE, KEEPALIVE_IDLE_SECONDS);
+        trySet(socket, ExtendedSocketOptions.TCP_KEEPINTERVAL, KEEPALIVE_INTERVAL_SECONDS);
+        trySet(socket, ExtendedSocketOptions.TCP_KEEPCOUNT, KEEPALIVE_PROBES);
+    }
+
+    private static void trySet(Socket socket, SocketOption<Integer> option, int value) {
+        try {
+            socket.setOption(option, value);
+        } catch (UnsupportedOperationException | IOException | LinkageError e) {
+            // Not on this platform. Plain keepalive with the OS's own timers is what we get.
         }
     }
 
@@ -61,6 +107,11 @@ public final class MessageChannel implements AutoCloseable {
             return null;
         }
         return Message.decode(line);
+    }
+
+    /** The socket underneath, so a test can look at how it is configured. */
+    Socket socket() {
+        return socket;
     }
 
     /** A short description of the peer, for logging. */

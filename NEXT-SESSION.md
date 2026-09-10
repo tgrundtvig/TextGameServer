@@ -6,7 +6,7 @@ the source of truth. This file is only about state and sequencing.
 ## Status in one line
 
 **It is built and it works.** A server, the student-facing framework, the console player
-client and three worked examples, playing whole matches end to end, with 71 tests passing.
+client and three worked examples, playing whole matches end to end, with 97 tests passing.
 
 ```
 mvn install        # builds everything and runs every test
@@ -77,6 +77,7 @@ prompts with the match thread blocked until all N answers are in.
 | A student's crash | `HostRuntime.runMatch` | Catches everything, ends that table only, trace to the student's own console. |
 | Ending a match once | `Hub.endMatch` | Idempotent: the game, a disconnect and a timeout all funnel here. |
 | Reading `System.in` | `ConsoleGuard` | Warns once when a `Scanner` appears, which is `DESIGN.md` §8's predicted mistake. |
+| A machine that vanishes | `MessageChannel.keepAlive` | TCP keepalive with short timers on every socket, both sides. Without it a rebooted laptop's game stays in the lobby forever. |
 
 ---
 
@@ -85,12 +86,13 @@ prompts with the match thread blocked until all N answers are in.
 | Where | What it proves |
 |---|---|
 | `MessageTest` | Encode/decode round-trips: spaces, leading spaces, empty text, backslashes, newlines, every message type. |
+| `MessageChannelTest` | Keepalive is on, with our timers, on dialed and accepted sockets alike. |
 | `AskTest`, `AskAllTest` | The `ask` family against a scripted transport, with no server at all. Assert on exactly what the player is shown. |
 | `MatchEndingTest` | Normal return, disconnect mid-`ask`, disconnect mid-`askAll`, a student's crash, one table dying while another plays on. |
 | `AnswersTest` | The typed-getter error messages from `DESIGN.md` §4, word for word. |
 | `BadUsageTest` | Mistakes a student can make, and whether the message tells them what to do. |
 | `EndToEndTest` | Real server, real sockets, real game programs, whole matches from lobby to end. |
-| `LobbyTest`, `ServerRulesTest` | The rules in `DESIGN.md` §5, plus name collisions, idle timeout and the host disconnecting. |
+| `LobbyTest`, `ServerRulesTest` | The rules in `DESIGN.md` §5, plus name collisions, idle timeout, the host disconnecting, and a machine that dies without closing its connection. |
 
 `ScriptedServer` (client tests) and `ScriptedPlayer`/`ScriptedGame` (integration tests) are
 the harnesses. Anything new should reuse them rather than grow a third style.
@@ -102,8 +104,8 @@ the harnesses. Anything new should reuse them rather than grow a third style.
 Nothing blocks a first lesson. In rough order of value:
 
 1. **Run it with a real class.** Everything below is guesswork until then, particularly the
-   two-minute idle timeout — and whether the school network can reach the game port at all
-   (`deploy/README.md`).
+   two-minute idle timeout. The school network *can* reach the game port — verified from the
+   school wifi 2026-09-10, see `deploy/README.md` — so that worry is gone.
 2. **Spectators** and **reconnecting** — the two open questions in `DESIGN.md` §11.
 3. **Fold the template into the course material** — `template/` is written and works, in
    Danish. It wants copying into `DAT-GBG-DA-E26AB` under the week it is taught, which is
@@ -120,7 +122,15 @@ Nothing blocks a first lesson. In rough order of value:
 - `Answers.getDouble` accepts answers from `askAllInt` as well as `askAllDouble`, on the
   grounds that every whole number is a number. No test-driven reason to change it, but it is
   the one place the typed getters are not strict.
-- The server logs three lines total. If a lesson goes wrong, there is not much to look at.
+- The server logs one line per player joining and leaving, and per game program coming and
+  going, each with the reason the connection ended: `said goodbye`, `closed the connection`,
+  or `connection lost (...)` with the kernel's own words. `Connection timed out` there means
+  keepalive gave up on a machine that vanished. That is the whole log; it was three lines
+  before the first student report made it clear that was too few.
+- Keepalive only watches an *idle* connection. A player the server was in the middle of
+  sending to when their machine died is noticed by TCP's retransmission limit instead —
+  about fifteen minutes on Linux. A protocol heartbeat would close that gap; see the
+  decision log for why it waits.
 
 ---
 

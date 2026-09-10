@@ -6,10 +6,12 @@ kilden til, hvordan systemet hænger sammen; det her ændrer intet i den.
 
 ## Hvorfor
 
-**Firewallen er den egentlige grund.** Spilserveren lytter på port 4000, og om
-en skole lukker den ud, ved vi ikke før testen i næste uge. En WebSocket kører
-på 443 gennem den Caddy, der allerede står der — så virker web-spilleren, også
-hvis 4000 er lukket.
+**Firewallen var den egentlige grund.** Spilserveren lytter på port 4000, og om
+skolen lukkede den ud, vidste vi ikke, da det her blev skrevet. Det gør den:
+efterprøvet fra skolens wifi 2026-09-10 (`deploy/README.md`). Så web-spilleren
+er en bekvemmelighed, ikke en nødvendighed. Argumentet står stadig for andre
+netværk: en WebSocket kører på 443 gennem den Caddy, der allerede står der, så
+web-spilleren virker også dér, hvor 4000 er lukket.
 
 Derudover: ingen installation. En telefon i frikvarteret, en fremvisning på
 projektoren, en studerende der vil se hvad det er, før hun bygger noget.
@@ -151,5 +153,6 @@ IP i broen, mens vi er der.
 En god dags arbejde for skive 0–6. Skive 7 er så meget eller lidt, som der er
 lyst til.
 
-Det haster ikke: virker port 4000 fra skolen, er det her en luksus. Virker den
-ikke, er det svaret — og så er det pengene værd.
+Det haster ikke. Port 4000 virker fra skolen (efterprøvet 2026-09-10), så det
+her er en luksus — værd at bygge for telefonen og projektoren, ikke for at
+komme igennem en firewall.
