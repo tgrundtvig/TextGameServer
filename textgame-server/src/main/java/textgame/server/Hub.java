@@ -24,6 +24,13 @@ final class Hub {
     private final Map<String, HostedGame> games = new LinkedHashMap<>();
     private final Map<String, Table> tablesByKey = new LinkedHashMap<>();
     private final Map<String, Table> tablesById = new LinkedHashMap<>();
+    /**
+     * The match ids currently in play. A table gets a fresh id every time it starts a match,
+     * and every message between the game program and the server carries that id — so a line
+     * left over from the previous match at the same table (a slow thread finally giving up)
+     * resolves to nothing instead of hitting the match that started after it.
+     */
+    private final Map<String, Table> matchesById = new LinkedHashMap<>();
     private final Map<String, PlayerSession> playersByKey = new LinkedHashMap<>();
 
     private final int maxTablesPerGame;
@@ -40,16 +47,26 @@ final class Hub {
     // ---- game programs -------------------------------------------------------
 
     synchronized HostedGame register(Endpoint out, String name, int minPlayers, int maxPlayers) {
+        name = oneLine(name);
         if (name.isBlank()) {
             out.err("Your game needs a name. Return one from name().");
             return null;
+        }
+        for (HostedGame other : games.values()) {
+            if (key(other.name()).equals(key(name))) {
+                out.err("A game called " + other.name() + " is already in the lobby, hosted"
+                        + " from " + other.out().peer() + ". Give yours its own name in name()."
+                        + " (If that is your own program from a minute ago, it will drop out"
+                        + " of the lobby by itself — wait a moment and start again.)");
+                return null;
+            }
         }
         if (minPlayers < 1 || maxPlayers < minPlayers) {
             out.err("minPlayers() must be at least 1 and maxPlayers() at least as big;"
                     + " this game said " + minPlayers + " and " + maxPlayers + ".");
             return null;
         }
-        HostedGame game = new HostedGame(newId("g"), out, name.strip(), minPlayers, maxPlayers);
+        HostedGame game = new HostedGame(newId("g"), out, name, minPlayers, maxPlayers);
         games.put(game.id(), game);
         out.send(Message.of(MessageType.REGISTERED, game.id()));
         System.out.println("[server] " + game.name() + " is now hosted from " + out.peer());
@@ -57,7 +74,12 @@ final class Hub {
     }
 
     synchronized void describe(HostedGame game, String description) {
-        game.describe(description.strip());
+        game.describe(oneLine(description));
+    }
+
+    /** Names and descriptions are shown in a menu, one per line; a newline would break it. */
+    private static String oneLine(String text) {
+        return text.replace('\r', ' ').replace('\n', ' ').strip();
     }
 
     /** The game program stopped: its tables go with it, and its players go back to the lobby. */
@@ -67,7 +89,7 @@ final class Hub {
         }
         System.out.println("[server] " + game.name() + " is no longer hosted: " + why);
         for (Table table : List.copyOf(game.tables())) {
-            endMatch(table, game.name() + " was taken down while you were playing.");
+            endMatch(table, game.name() + " was taken down while you were playing.", false);
             for (PlayerSession p : List.copyOf(table.seated())) {
                 p.stand();
                 p.out().send(Message.withText(MessageType.LEFT,
@@ -82,7 +104,7 @@ final class Hub {
         switch (message.type()) {
             case DESCRIBE -> describe(game, message.text());
             case MSG_ALL -> {
-                Table table = liveTable(game, message.arg(0));
+                Table table = liveMatch(game, message.arg(0));
                 if (table != null) {
                     tellAll(table, Message.withText(MessageType.MSG, message.text()));
                 }
@@ -101,9 +123,9 @@ final class Hub {
                 }
             }
             case ENDMATCH -> {
-                Table table = tablesById.get(message.arg(0));
-                if (table != null && table.game() == game) {
-                    endMatch(table, message.text());
+                Table table = liveMatch(game, message.arg(0));
+                if (table != null) {
+                    endMatch(table, message.text(), true);
                 }
             }
             case REGISTER -> game.out().err("This connection is already hosting "
@@ -113,14 +135,15 @@ final class Hub {
         }
     }
 
-    private Table liveTable(HostedGame game, String tableId) {
-        Table table = tablesById.get(tableId);
+    /** The table playing this match, or {@code null} if the match is over or never existed. */
+    private Table liveMatch(HostedGame game, String matchId) {
+        Table table = matchesById.get(matchId);
         // Late messages from a match that has just ended are normal, and not worth an error.
         return table != null && table.game() == game && table.isPlaying() ? table : null;
     }
 
-    private PlayerSession seatedPlayer(HostedGame game, String tableId, String playerId) {
-        Table table = liveTable(game, tableId);
+    private PlayerSession seatedPlayer(HostedGame game, String matchId, String playerId) {
+        Table table = liveMatch(game, matchId);
         if (table == null) {
             return null;
         }
@@ -211,7 +234,7 @@ final class Hub {
                     return;
                 }
                 player.clearPrompt();
-                table.game().out().send(Message.withText(MessageType.INPUT, table.id(),
+                table.game().out().send(Message.withText(MessageType.INPUT, table.matchId(),
                         player.id(), message.text()));
             }
             case LEAVE -> leaveTable(player, player.name() + " left", true);
@@ -219,7 +242,7 @@ final class Hub {
                     + " the game. Wait until it is over to chat.");
             case WHO -> who(player, table);
             default -> player.out().err("The match has started. Just answer what the game"
-                    + " asks you, or type 'leave' to walk away from the table.");
+                    + " asks you, or type /leave to walk away from the table.");
         }
     }
 
@@ -239,9 +262,7 @@ final class Hub {
     private void listTables(PlayerSession player, String gameId) {
         HostedGame game = games.get(gameId);
         if (game == null) {
-            player.out().err("That game is not in the lobby any more —"
-                    + " whoever was running it has stopped.");
-            player.out().send(Message.of(MessageType.TABLE_LIST, "-", "0"));
+            gameIsGone(player);
             return;
         }
         player.out().send(Message.of(MessageType.TABLE_LIST, gameId,
@@ -253,11 +274,21 @@ final class Hub {
         }
     }
 
+    /**
+     * The game a player was looking at has left the lobby — its student restarted their
+     * program, most likely. Saying so is not enough: the client is still holding a list with
+     * the old game in it, so send a fresh list and let it start over from there.
+     */
+    private void gameIsGone(PlayerSession player) {
+        player.out().err("That game is not in the lobby any more —"
+                + " whoever was running it has stopped. Here is what is running now.");
+        listGames(player);
+    }
+
     private void createTable(PlayerSession player, String gameId, String name) {
         HostedGame game = games.get(gameId);
         if (game == null) {
-            player.out().err("That game is not in the lobby any more —"
-                    + " whoever was running it has stopped.");
+            gameIsGone(player);
             return;
         }
         if (!Names.isTableName(name)) {
@@ -352,9 +383,9 @@ final class Hub {
         player.stand();
 
         if (wasPlaying) {
-            table.game().out().send(Message.of(MessageType.PLAYER_GONE, table.id(),
+            table.game().out().send(Message.of(MessageType.PLAYER_GONE, table.matchId(),
                     player.id()));
-            endMatch(table, "Game ended: " + reason + ".");
+            endMatch(table, "Game ended: " + reason + ".", true);
         } else {
             tellAll(table, Message.withText(MessageType.NOTICE, "* " + reason + " ("
                     + table.seated().size() + "/" + table.game().maxPlayers() + ")"));
@@ -382,25 +413,36 @@ final class Hub {
 
     private void startMatch(Table table) {
         table.setPlaying(true);
+        String matchId = newId("m");
+        table.setMatchId(matchId);
+        matchesById.put(matchId, table);
         Endpoint host = table.game().out();
-        host.send(Message.of(MessageType.TABLE_START, table.id(),
+        host.send(Message.of(MessageType.TABLE_START, matchId,
                 String.valueOf(table.seated().size())));
         for (PlayerSession p : table.seated()) {
             p.setReady(false);
             p.clearPrompt();
-            host.send(Message.withText(MessageType.TABLE_SEAT, table.id(), p.id(), p.name()));
+            host.send(Message.withText(MessageType.TABLE_SEAT, matchId, p.id(), p.name()));
         }
-        host.send(Message.of(MessageType.TABLE_GO, table.id()));
+        host.send(Message.of(MessageType.TABLE_GO, matchId));
         tellAll(table, Message.withText(MessageType.MATCH_START,
                 "—— " + table.game().name() + " starts ——"));
     }
 
-    /** Ends a match exactly once, whoever noticed first: the game, a disconnect or a timeout. */
-    private void endMatch(Table table, String reason) {
+    /**
+     * Ends a match exactly once, whoever noticed first: the game, a disconnect or a timeout.
+     *
+     * <p>{@code backToTable} is false when the table itself is about to go — its game program
+     * has stopped — so that nobody is told to type {@code ready} at a table that no longer
+     * exists.
+     */
+    private void endMatch(Table table, String reason, boolean backToTable) {
         if (!table.isPlaying()) {
             return;
         }
         table.setPlaying(false);
+        matchesById.remove(table.matchId());
+        table.setMatchId(null);
         String ending = reason == null || reason.isBlank()
                 ? "—— the match is over ——"
                 : "—— " + reason + " ——";
@@ -409,8 +451,10 @@ final class Hub {
             p.clearPrompt();
         }
         tellAll(table, Message.withText(MessageType.MATCH_END, ending));
-        tellAll(table, Message.withText(MessageType.NOTICE,
-                "You are back at " + table.name() + ". Type 'ready' to play again."));
+        if (backToTable) {
+            tellAll(table, Message.withText(MessageType.NOTICE,
+                    "You are back at " + table.name() + ". Type 'ready' to play again."));
+        }
     }
 
     /**
@@ -418,15 +462,19 @@ final class Hub {
      * their seat, because a slow answer is not the same as walking out.
      */
     synchronized void endIdleMatches(long idleSeconds) {
+        if (idleSeconds <= 0) {
+            return;   // switched off
+        }
         for (Table table : List.copyOf(tablesById.values())) {
             if (!table.isPlaying()) {
                 continue;
             }
             for (PlayerSession p : List.copyOf(table.seated())) {
                 if (p.isPrompted() && p.waitingSeconds() >= idleSeconds) {
-                    table.game().out().send(Message.of(MessageType.PLAYER_GONE, table.id(),
-                            p.id()));
-                    endMatch(table, "Game ended: " + p.name() + " did not answer in time");
+                    table.game().out().send(Message.of(MessageType.PLAYER_GONE,
+                            table.matchId(), p.id()));
+                    endMatch(table, "Game ended: " + p.name() + " did not answer in time",
+                            true);
                     break;
                 }
             }

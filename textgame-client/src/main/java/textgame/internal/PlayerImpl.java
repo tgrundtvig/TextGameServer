@@ -51,12 +51,14 @@ public final class PlayerImpl implements Player {
 
     @Override
     public void tell(String text) {
+        Prompts.checkText(text, "tell");
         table.checkAlive();
         table.send(Message.withText(MessageType.MSG_ONE, table.id(), id, text));
     }
 
     @Override
     public String ask(String question) {
+        Prompts.checkText(question, "ask");
         table.checkAlive();
         table.send(Message.withText(MessageType.PROMPT_ONE, table.id(), id, question));
         Object answer;

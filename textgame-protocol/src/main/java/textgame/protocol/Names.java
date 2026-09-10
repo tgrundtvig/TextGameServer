@@ -1,7 +1,7 @@
 package textgame.protocol;
 
 import java.util.Locale;
-import java.util.regex.Pattern;
+import java.util.Set;
 
 /**
  * What a player name and a table name are allowed to look like — in the protocol module,
@@ -22,7 +22,12 @@ public final class Names {
     /** Long enough to be descriptive, short enough to read in a lobby listing. */
     private static final int TABLE_MAX = 20;
 
-    private static final Pattern ALLOWED = Pattern.compile("[A-Za-z0-9_-]+");
+    /**
+     * Words the player client treats as commands at a lobby prompt. A table with one of these
+     * as its name could be created but never joined by typing its name.
+     */
+    private static final Set<String> COMMANDS = Set.of("ready", "unready", "leave", "who",
+            "help", "back", "quit", "refresh");
 
     private Names() {
     }
@@ -31,13 +36,38 @@ public final class Names {
         return fits(name, PLAYER_MAX);
     }
 
+    /**
+     * A table name also needs a letter in it and must not be one of the lobby commands, because
+     * a table called {@code 3} or {@code quit} could never be joined by typing its name: the
+     * client would read it as a menu pick or a command.
+     */
     public static boolean isTableName(String name) {
-        return fits(name, TABLE_MAX);
+        return fits(name, TABLE_MAX) && hasLetter(name) && !isCommand(name);
     }
 
     private static boolean fits(String name, int max) {
-        return name != null && !name.isEmpty() && name.length() <= max
-                && ALLOWED.matcher(name).matches();
+        if (name == null || name.isEmpty() || name.length() > max) {
+            return false;
+        }
+        for (int i = 0; i < name.length(); i++) {
+            if (!isAllowed(name.charAt(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean hasLetter(String name) {
+        for (int i = 0; i < name.length(); i++) {
+            if (Character.isLetter(name.charAt(i))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static boolean isCommand(String name) {
+        return COMMANDS.contains(name.toLowerCase(Locale.ROOT));
     }
 
     /** Why this name will not do, and what to type instead. */
@@ -66,7 +96,15 @@ public final class Names {
             return "That " + what + " is " + name.length() + " characters long;"
                     + " the most is " + max + "." + tail;
         }
-        return "A " + what + " can only use letters, digits, - and _." + tail;
+        if (!fits(name, max)) {
+            return "A " + what + " can only use letters, digits, - and _." + tail;
+        }
+        if (what.startsWith("table") && isCommand(name)) {
+            return "'" + name + "' is something you can type at the lobby, so a table cannot"
+                    + " be called that. Try " + name + "-table.";
+        }
+        return "A " + what + " needs at least one letter in it, so that it cannot be mistaken"
+                + " for a menu number. Try " + example1 + " or " + example2 + ".";
     }
 
     /**
@@ -121,9 +159,9 @@ public final class Names {
         return name.length() > TABLE_MAX ? name.substring(0, TABLE_MAX) : name;
     }
 
+    /** Letters in any alphabet — Søren is a name — plus digits, dash and underscore. */
     private static boolean isAllowed(char c) {
-        return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')
-                || (c >= '0' && c <= '9') || c == '-' || c == '_';
+        return Character.isLetterOrDigit(c) || c == '-' || c == '_';
     }
 
     private static boolean containsWhitespace(String name) {

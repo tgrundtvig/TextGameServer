@@ -297,4 +297,68 @@ class EndToEndTest {
             assertEquals(1, odd, "only one impostor: " + words);
         }
     }
+
+    @Test
+    void liarsDiceIsPlayedUntilSomebodyIsOutOfDice() throws Exception {
+        hostGame(new LiarsDice());
+        try (ScriptedPlayer alice = player("alice"); ScriptedPlayer bob = player("bob")) {
+            String gameId = findGame(alice, "Liar's Dice");
+            alice.send(Message.of(MessageType.CREATE_TABLE, gameId, "dice"));
+            alice.await(MessageType.JOINED);
+            bob.send(Message.of(MessageType.JOIN_TABLE, "dice"));
+            bob.await(MessageType.JOINED);
+            alice.say(MessageType.READY);
+            bob.say(MessageType.READY);
+            alice.await(MessageType.MATCH_START);
+
+            // The dice are random, so neither the turn order nor the outcome is known in
+            // advance. Each player answers whatever they are asked, on their own thread.
+            Thread a = keepAnswering(alice);
+            Thread b = keepAnswering(bob);
+            a.join(30_000);
+            b.join(30_000);
+            assertTrue(!a.isAlive() && !b.isAlive(), "the match did not end: "
+                    + alice.transcript());
+            if (failure != null) {
+                throw failure;
+            }
+
+            String seen = alice.transcript();
+            assertTrue(seen.contains("Your dice:"), seen);
+            assertTrue(seen.contains("bids 1 die showing 2"), seen);
+            assertTrue(seen.contains("Cups up:"), seen);
+            assertTrue(seen.contains("is out."), seen);
+            assertTrue(seen.contains("wins!"), seen);
+            assertTrue(bob.transcript().contains("wins!"), bob.transcript());
+        }
+    }
+
+    private volatile AssertionError failure;
+
+    /** Opens every round with the lowest possible bid, and calls every bid a lie. */
+    private Thread keepAnswering(ScriptedPlayer p) {
+        Thread t = new Thread(() -> {
+            try {
+                while (true) {
+                    Message m = p.await(MessageType.PROMPT, MessageType.MATCH_END);
+                    if (m.type() == MessageType.MATCH_END) {
+                        return;
+                    }
+                    String question = m.text();
+                    if (question.contains("call liar")) {
+                        p.answer("2");
+                    } else if (question.startsWith("How many")) {
+                        p.answer("1");
+                    } else {
+                        p.answer("2");
+                    }
+                }
+            } catch (AssertionError e) {
+                failure = e;
+            }
+        }, "answers-" + p.playerName());
+        t.setDaemon(true);
+        t.start();
+        return t;
+    }
 }

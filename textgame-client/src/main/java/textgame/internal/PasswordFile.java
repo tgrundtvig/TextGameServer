@@ -35,7 +35,9 @@ public final class PasswordFile {
             return null;
         }
         try {
-            String text = Files.readString(path, StandardCharsets.UTF_8).strip();
+            // Notepad and Word like to put a byte-order mark first; it is not part of the word.
+            String text = Files.readString(path, StandardCharsets.UTF_8)
+                    .replace("\uFEFF", "").strip();
             return text.isEmpty() ? null : text;
         } catch (IOException e) {
             return null;

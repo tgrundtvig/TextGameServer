@@ -22,11 +22,20 @@ public final class Prompts {
         }
     }
 
-    /** The answer as a number, or {@code null} if it is not one. */
+    /**
+     * The answer as a number, or {@code null} if it is not one.
+     *
+     * <p>A decimal comma counts: {@code 3,5} is how a Danish player writes three and a half,
+     * and refusing it with "please type a number" would be refusing a number.
+     */
     public static Double asDouble(String answer) {
         String trimmed = answer.trim();
         if (trimmed.isEmpty()) {
             return null;
+        }
+        if (trimmed.indexOf(',') >= 0 && trimmed.indexOf('.') < 0
+                && trimmed.indexOf(',') == trimmed.lastIndexOf(',')) {
+            trimmed = trimmed.replace(',', '.');
         }
         try {
             double value = Double.parseDouble(trimmed);
@@ -64,8 +73,20 @@ public final class Prompts {
         return "Please type a number between " + min + " and " + max + ".";
     }
 
+    /**
+     * Fails early, on the student's own console, when text is {@code null} — the alternative
+     * is a wire-protocol error about a missing text field, which tells them nothing.
+     */
+    public static void checkText(String text, String what) {
+        if (text == null) {
+            throw new IllegalArgumentException(what + " was given null instead of text."
+                    + " Check the variable you passed in — it has not been given a value.");
+        }
+    }
+
     /** The question with its options numbered underneath, as the player will see it. */
     public static String menu(String question, String[] options) {
+        checkText(question, "askChoice");
         StringBuilder sb = new StringBuilder(question);
         for (int i = 0; i < options.length; i++) {
             sb.append("\n  ").append(i + 1).append(") ").append(options[i]);

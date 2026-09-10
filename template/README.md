@@ -8,9 +8,15 @@ resten klarer biblioteket.
 1. **Kopiér denne mappe** og omdøb den til dit spil.
 2. **Åbn mappen i IntelliJ** (File → Open → vælg mappen, ikke filerne i den).
    IntelliJ henter selv biblioteket ned. Første gang tager det et øjeblik.
+   Projektet kræver **Java 21**. Får du en fejl med *"wrong version"* eller
+   *"invalid target release: 21"*, så vælg en JDK 21 under File → Project
+   Structure → Project → SDK (IntelliJ kan hente den for dig).
 3. **Omdøb de to klasser** til noget, der passer til dit spil. Højreklik på
    klassenavnet → Refactor → Rename. `MyGame` og `MyGameMatch` skal begge
    omdøbes. `StartPlayer` skal du lade være.
+4. **Giv spillet et navn.** Det er teksten i `name()` — den står i lobbyen, og
+   der kan ikke være to spil med samme navn på serveren. Et spil, der hedder
+   "Mit spil", bliver afvist, så snart en anden allerede har ét.
 
 Der ligger tre filer: `MyGame` og `MyGameMatch` er **dit spil**, og `StartPlayer`
 er bare en grøn pil, der starter spiller-programmet.
@@ -65,6 +71,9 @@ hver, der er med. I IntelliJ bliver de til hver sin fane nederst i Run-vinduet.
    ene vindue. I det andet skriver du **bordets navn** ved "Which game?" — så
    hopper du direkte derhen. Skriv `ready` begge steder, og spillet går i gang.
 
+   Mens spillet kører, er alt hvad du skriver dit svar. Vil du ud af et spil,
+   der er gået i stå, så skriv `/leave` — så slutter det for alle ved bordet.
+
 Serveren kører hele tiden, så du skal ikke selv starte noget. Den står som
 `game.tobiasgrundtvig.dk` i `MyGame` og i `StartPlayer`.
 
@@ -105,7 +114,7 @@ En `Player` (én spiller):
 | `p.tell("...")` | skriv til spilleren |
 | `p.ask("...")` | spørg, og få linjen præcis som den blev skrevet |
 | `p.askInt("...")` / `p.askInt("...", 1, 100)` | spørg om et helt tal |
-| `p.askDouble("...")` | spørg om et tal med komma |
+| `p.askDouble("...")` | spørg om et tal med komma (`3,5` og `3.5` virker begge) |
 | `p.askYesNo("...")` | ja eller nej |
 | `p.askChoice("...", "sten", "saks")` | menu — giver teksten tilbage |
 | `p.askChoiceIndex("...", "sten", "saks")` | samme menu — giver nummeret (fra 0) |

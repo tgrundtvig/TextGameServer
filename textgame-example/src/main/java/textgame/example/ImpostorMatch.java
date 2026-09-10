@@ -48,18 +48,24 @@ public class ImpostorMatch implements Match {
             accused.add(room.players().get(votes.getIndex(p)));
         }
 
-        Player mostVoted = mostVotedIn(room, accused);
+        List<Player> mostVoted = mostVotedIn(room, accused);
         room.tellAll("");
-        room.tellAll("The table picked " + mostVoted.name() + ".");
+        if (mostVoted.size() > 1) {
+            room.tellAll("The table could not agree: " + names(mostVoted) + " got the same"
+                    + " number of votes.");
+        } else {
+            room.tellAll("The table picked " + mostVoted.get(0).name() + ".");
+        }
         room.tellAll("The impostor was " + impostor.name() + ", with the word "
                 + pair[1] + ".");
-        room.tellAll(mostVoted == impostor
+        room.tellAll(mostVoted.size() == 1 && mostVoted.get(0) == impostor
                 ? "The table wins."
                 : "The impostor wins.");
     }
 
-    private Player mostVotedIn(Room room, List<Player> accused) {
-        Player best = room.players().get(0);
+    /** Everybody with the most votes — one player if the table agreed, more if it tied. */
+    private List<Player> mostVotedIn(Room room, List<Player> accused) {
+        List<Player> best = new ArrayList<>();
         int bestCount = -1;
         for (Player p : room.players()) {
             int count = 0;
@@ -70,9 +76,23 @@ public class ImpostorMatch implements Match {
             }
             if (count > bestCount) {
                 bestCount = count;
-                best = p;
+                best.clear();
+                best.add(p);
+            } else if (count == bestCount) {
+                best.add(p);
             }
         }
         return best;
+    }
+
+    private String names(List<Player> players) {
+        String text = "";
+        for (int i = 0; i < players.size(); i++) {
+            if (i > 0) {
+                text += i == players.size() - 1 ? " and " : ", ";
+            }
+            text += players.get(i).name();
+        }
+        return text;
     }
 }

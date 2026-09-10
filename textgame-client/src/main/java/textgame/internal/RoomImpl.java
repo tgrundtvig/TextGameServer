@@ -45,6 +45,7 @@ public final class RoomImpl implements Room {
 
     @Override
     public void tellAll(String text) {
+        Prompts.checkText(text, "tellAll");
         table.checkAlive();
         if (members.size() == table.seats().size()) {
             table.send(Message.withText(MessageType.MSG_ALL, table.id(), text));
@@ -77,14 +78,21 @@ public final class RoomImpl implements Room {
         return without(Arrays.asList(some));
     }
 
+    /**
+     * Leaving out somebody who is not here is not an error: the natural way to knock players
+     * out one round at a time is {@code alive = alive.without(losers)}, and by round two the
+     * first loser is already gone from {@code alive}.
+     */
     @Override
     public Room without(List<Player> some) {
-        List<PlayerImpl> excluded = new ArrayList<>();
-        for (Player p : some) {
-            excluded.add(member(p, "without"));
-        }
         List<PlayerImpl> kept = new ArrayList<>(members);
-        kept.removeAll(excluded);
+        for (Player p : some) {
+            if (p == null) {
+                throw new IllegalArgumentException(
+                        "room.without was given null instead of a player.");
+            }
+            kept.remove(p);
+        }
         return new RoomImpl(table, kept);
     }
 

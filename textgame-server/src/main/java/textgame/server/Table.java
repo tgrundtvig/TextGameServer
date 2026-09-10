@@ -12,6 +12,8 @@ final class Table {
     private final List<PlayerSession> seated = new ArrayList<>();
 
     private boolean playing;
+    /** The id of the match being played right now, or {@code null} between matches. */
+    private String matchId;
 
     Table(String id, String name, HostedGame game) {
         this.id = id;
@@ -41,6 +43,14 @@ final class Table {
 
     void setPlaying(boolean playing) {
         this.playing = playing;
+    }
+
+    String matchId() {
+        return matchId;
+    }
+
+    void setMatchId(String matchId) {
+        this.matchId = matchId;
     }
 
     boolean isFull() {

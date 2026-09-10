@@ -30,10 +30,13 @@ public interface Player {
     /** Asks for a whole number from {@code min} to {@code max}, both included. */
     int askInt(String question, int min, int max);
 
-    /** Asks for a number, re-asking until they type one. Decimals allowed. */
+    /** Asks for a number, re-asking until they type one. {@code 3.5} and {@code 3,5} both work. */
     double askDouble(String question);
 
-    /** Asks a yes/no question. Accepts {@code y}, {@code yes}, {@code n}, {@code no}. */
+    /**
+     * Asks a yes/no question, re-asking until they answer one. Accepts {@code yes}, {@code y},
+     * {@code ja} and {@code j} for yes; {@code no}, {@code n} and {@code nej} for no.
+     */
     boolean askYesNo(String question);
 
     /**

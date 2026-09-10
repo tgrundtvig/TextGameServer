@@ -67,6 +67,11 @@ java -jar textgame-server/target/textgame-server.jar 4000        # the teacher, 
 java -jar textgame-client/target/textgame-client.jar localhost 4000   # everybody who plays
 ```
 
+A server started with `TEXTGAME_PASSWORD` set in its environment lets nobody in without
+that word. Clients — the console player and a student's game alike — read it from a file
+called `kodeord.txt` next to their `pom.xml` and send it first. Without the variable the
+server is open, which is fine on a classroom LAN and not fine on the internet.
+
 Both jars are self-contained. A student's game is an ordinary program:
 
 ```java
@@ -85,8 +90,9 @@ java -jar textgame-example/target/textgame-example.jar RockPaperScissors myserve
 ```
 
 `NumberDuel` (2–4, turn by turn), `RockPaperScissors` (2–6, simultaneous moves
-via `askAllChoice`) and `Impostor` (3–8, secrets told to one player via
-`only`/`without`).
+via `askAllChoice`), `Impostor` (3–8, secrets told to one player via
+`only`/`without`) and `LiarsDice` (2–6, state in arrays parallel to `players()`,
+and a rule the game checks itself).
 
 ### Playing a game end to end
 
@@ -123,7 +129,7 @@ player client from that one dependency:
     <dependency>
         <groupId>textgame</groupId>
         <artifactId>textgame-client</artifactId>
-        <version>0.4.0</version>
+        <version>0.5.0</version>
     </dependency>
 </dependencies>
 ```

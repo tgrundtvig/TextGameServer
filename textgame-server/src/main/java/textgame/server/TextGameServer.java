@@ -11,6 +11,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.TimeUnit;
 import textgame.protocol.Message;
 import textgame.protocol.MessageChannel;
@@ -91,6 +92,10 @@ public final class TextGameServer implements AutoCloseable {
         System.out.println(password == null
                 ? "[server] no password set — anybody who can reach this port can join"
                 : "[server] a class password is required to join");
+        if (idleSeconds <= 0) {
+            System.out.println("[server] the idle timeout is off: a player who never answers"
+                    + " holds their table until they leave");
+        }
         Thread.ofVirtual().name("accept").start(server::acceptLoop);
         Thread.ofVirtual().name("idle-watch").start(server::idleLoop);
         return server;
@@ -145,18 +150,40 @@ public final class TextGameServer implements AutoCloseable {
         stopped.countDown();
     }
 
+    /**
+     * Accepts until the listener is closed. One failed accept — the machine is out of file
+     * descriptors, say — is not a reason to take the whole class down: log it, pause so the
+     * log does not fill, and keep going.
+     */
     private void acceptLoop() {
         while (running) {
+            Socket socket;
             try {
-                Socket socket = listener.accept();
+                socket = listener.accept();
+            } catch (IOException e) {
+                if (!running || listener.isClosed()) {
+                    break;
+                }
+                System.err.println("[server] could not accept a connection: " + e.getMessage()
+                        + " — still listening");
+                try {
+                    TimeUnit.SECONDS.sleep(1);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    break;
+                }
+                continue;
+            }
+            try {
                 socket.setTcpNoDelay(true);
                 connections.execute(() -> serve(socket));
-            } catch (IOException e) {
-                if (running) {
-                    System.err.println("[server] could not accept a connection: "
-                            + e.getMessage());
+            } catch (IOException | RejectedExecutionException e) {
+                // A socket option failing, or a connection arriving during shutdown.
+                try {
+                    socket.close();
+                } catch (IOException ignored) {
+                    // Nothing more to do for it.
                 }
-                break;
             }
         }
         stopped.countDown();
@@ -191,6 +218,11 @@ public final class TextGameServer implements AutoCloseable {
         try {
             out = new Endpoint(new MessageChannel(socket));
         } catch (IOException e) {
+            try {
+                socket.close();
+            } catch (IOException ignored) {
+                // It was never usable.
+            }
             return;
         }
         live.add(out);
@@ -206,6 +238,12 @@ public final class TextGameServer implements AutoCloseable {
                 try {
                     message = out.receive();
                 } catch (ProtocolException e) {
+                    if (!allowedIn) {
+                        // Nothing gets a reply before the password, not even an error:
+                        // a stranger must not be able to make the server talk.
+                        out.goodbye("This server needs the class password first.");
+                        break;
+                    }
                     // One unreadable line is not worth dropping the connection over.
                     out.err("The server could not read that: " + e.getMessage());
                     continue;

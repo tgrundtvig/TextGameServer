@@ -4,6 +4,7 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -99,8 +100,7 @@ public final class PlayerClient {
                     }
                 } catch (RuntimeException e) {
                     // A bug here is not the player's fault and must not end their evening.
-                    out.println("Sorry — something went wrong handling that ("
-                            + e.getClass().getSimpleName() + "). Carrying on.");
+                    out.println("Sorry — something went wrong handling that. Carrying on.");
                     reprompt();
                 }
             }
@@ -129,7 +129,7 @@ public final class PlayerClient {
         });
         Thread.ofVirtual().name("keyboard").start(() -> {
             BufferedReader keyboard = new BufferedReader(
-                    new InputStreamReader(System.in, StandardCharsets.UTF_8));
+                    new InputStreamReader(System.in, keyboardCharset()));
             try {
                 String line;
                 while ((line = keyboard.readLine()) != null) {
@@ -140,6 +140,22 @@ public final class PlayerClient {
             }
             events.add(END_OF_INPUT);
         });
+    }
+
+    /**
+     * What the keyboard is typing in. IntelliJ's console is UTF-8; a Windows command prompt
+     * usually is not, and reading it as UTF-8 turns every æ, ø and å into garbage.
+     */
+    private static Charset keyboardCharset() {
+        if (System.console() != null) {
+            return System.console().charset();
+        }
+        String named = System.getProperty("stdin.encoding", System.getProperty("stdout.encoding"));
+        try {
+            return named == null ? StandardCharsets.UTF_8 : Charset.forName(named);
+        } catch (IllegalArgumentException e) {
+            return StandardCharsets.UTF_8;
+        }
     }
 
     // ---- what the server says -----------------------------------------------
@@ -207,7 +223,13 @@ public final class PlayerClient {
                 out.println();
                 out.println(message.text());
             }
-            case MSG, NOTICE, CHATLINE -> out.println(message.text());
+            case MSG -> out.println(message.text());
+            case NOTICE, CHATLINE -> {
+                out.println(message.text());
+                if (state == State.AT_TABLE) {
+                    prompt("> ");
+                }
+            }
             case PROMPT -> {
                 out.println(message.text());
                 prompt("> ");
@@ -217,7 +239,11 @@ public final class PlayerClient {
                 reprompt();
             }
             case BYE -> {
+                out.println();
                 out.println(message.text());
+                if (message.text().contains("password")) {
+                    out.println(PasswordFile.howToFixIt());
+                }
                 finished = true;
             }
             default -> {
@@ -331,6 +357,10 @@ public final class PlayerClient {
             case PICKING_GAME -> pickGame(line);
             case PICKING_TABLE -> pickTable(line);
             case NAMING_TABLE -> {
+                if (line.equalsIgnoreCase("back")) {
+                    send(Message.of(MessageType.LIST_GAMES));
+                    return;
+                }
                 String name = line.isEmpty() ? defaultTableName() : line;
                 if (!Names.isTableName(name)) {
                     out.println(Names.whyNotTableName(name));
@@ -340,7 +370,20 @@ public final class PlayerClient {
                 send(Message.of(MessageType.CREATE_TABLE, chosenGameId, name));
             }
             case AT_TABLE -> atTable(line);
-            case IN_MATCH -> send(Message.withText(MessageType.ANSWER, event.line()));
+            case IN_MATCH -> inMatch(line, event.line());
+        }
+    }
+
+    /**
+     * During a match, what you type is your answer — all of it, so that a game can ask for a
+     * word like "leave" and get it. The way out of a running match is {@code /leave}, which no
+     * game would ask for.
+     */
+    private void inMatch(String stripped, String raw) {
+        switch (stripped.toLowerCase(Locale.ROOT)) {
+            case "/leave" -> send(Message.of(MessageType.LEAVE));
+            case "/who" -> send(Message.of(MessageType.WHO));
+            default -> send(Message.withText(MessageType.ANSWER, raw));
         }
     }
 
@@ -398,19 +441,22 @@ public final class PlayerClient {
         switch (line.toLowerCase(Locale.ROOT)) {
             case "ready" -> send(Message.of(MessageType.READY));
             case "unready" -> send(Message.of(MessageType.UNREADY));
-            case "leave" -> send(Message.of(MessageType.LEAVE));
-            case "who" -> send(Message.of(MessageType.WHO));
+            case "leave", "/leave" -> send(Message.of(MessageType.LEAVE));
+            case "who", "/who" -> send(Message.of(MessageType.WHO));
             case "help" -> {
                 out.println("ready    — you are ready to start; the match begins when"
                         + " everybody is");
                 out.println("unready  — changed your mind");
                 out.println("who      — who is at this table");
                 out.println("leave    — go back to the lobby");
-                out.println("Anything else you type is chat.");
+                out.println("Anything else you type is chat. Once the match is running,"
+                        + " everything you type is your answer; /leave walks away.");
                 prompt("> ");
             }
             default -> {
-                if (!line.isEmpty()) {
+                if (line.isEmpty()) {
+                    prompt("> ");
+                } else {
                     send(Message.withText(MessageType.CHAT, line));
                 }
             }

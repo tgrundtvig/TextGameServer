@@ -56,6 +56,7 @@ public final class RunExample {
             case "numberduel" -> new NumberDuel();
             case "rockpaperscissors", "rps" -> new RockPaperScissors();
             case "impostor" -> new Impostor();
+            case "liarsdice", "dice" -> new LiarsDice();
             default -> null;
         };
     }
@@ -72,6 +73,8 @@ public final class RunExample {
         System.out.println("  RockPaperScissors    2-6 players. Three rounds, thrown at once.");
         System.out.println("  Impostor             3-8 players. Everybody got the same word."
                 + " Almost everybody.");
+        System.out.println("  LiarsDice            2-6 players. Bid on every die at the table."
+                + " Doubt, and somebody loses one.");
         System.out.println();
         System.out.println("host defaults to localhost, port to 4000.");
     }

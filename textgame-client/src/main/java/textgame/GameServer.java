@@ -28,8 +28,9 @@ public final class GameServer {
     /**
      * Connects to a game server.
      *
-     * <p>Use {@code "localhost"} while you are building your game on your own, and the class
-     * server's address when you want other people to play it. Nothing else changes.
+     * <p>The class server is the usual choice: it runs all the time, and your game shows up
+     * there for everybody. If your teacher has given you the server program to run on your
+     * own machine, {@code "localhost"} points at that instead. Nothing else changes.
      */
     public static GameServer connect(String host, int port) {
         if (host == null || host.isBlank()) {
@@ -46,8 +47,9 @@ public final class GameServer {
     /**
      * Offers this game in the lobby and plays it until the program is stopped.
      *
-     * <p>This call does not return. Every time a table of players is ready, the framework asks
-     * your {@link Game} for a new {@link Match} and plays it.
+     * <p>This call keeps going until you stop the program or the connection to the server is
+     * lost. Every time a table of players is ready, the framework asks your {@link Game} for a
+     * new {@link Match} and plays it.
      */
     public void host(Game game) {
         if (game == null) {

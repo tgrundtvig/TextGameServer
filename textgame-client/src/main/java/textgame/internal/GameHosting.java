@@ -10,6 +10,7 @@ public final class GameHosting {
 
     /** Connects, registers the game and serves tables until the connection ends. */
     public static void run(String host, int port, Game game) {
+        HostRuntime.checkGame(game);
         ConsoleGuard.install();
         Link link = SocketLink.connect(host, port);
         new HostRuntime(link, game).run();

@@ -13,13 +13,19 @@ import textgame.protocol.MessageType;
  * <p>Sending never blocks the caller: messages go on a queue and a writer thread drains it.
  * That matters because the hub sends while holding its lock, and one player on a slow
  * connection must not be able to stop the whole server.
+ *
+ * <p>The queue is bounded. A peer that stops reading — a client hung, or a machine that has
+ * quietly gone away — would otherwise grow it without limit; past the bound the connection is
+ * dropped instead, and the reader thread cleans up as for any other disconnect.
  */
 final class Endpoint {
 
     private static final Message STOP = Message.of(MessageType.QUIT);
+    /** More than any honest client falls behind by; a chat room at a table is a few a second. */
+    private static final int OUTBOX_LIMIT = 5_000;
 
     private final MessageChannel channel;
-    private final BlockingQueue<Message> outbox = new LinkedBlockingQueue<>();
+    private final BlockingQueue<Message> outbox = new LinkedBlockingQueue<>(OUTBOX_LIMIT);
     private final Thread writer;
     private volatile boolean closed;
 
@@ -45,8 +51,13 @@ final class Endpoint {
     }
 
     void send(Message message) {
-        if (!closed) {
-            outbox.add(message);
+        if (closed) {
+            return;
+        }
+        if (!outbox.offer(message)) {
+            // The peer is not reading. Nothing queued can be delivered anyway, so drop
+            // the connection now rather than the server's memory later.
+            abort();
         }
     }
 
@@ -79,13 +90,15 @@ final class Endpoint {
             return;
         }
         closed = true;
-        outbox.add(STOP);
+        if (!outbox.offer(STOP)) {
+            abort();
+        }
     }
 
-    /** Drops the connection now. Used when the whole server is shutting down. */
+    /** Drops the connection now: the server is shutting down, or the peer stopped reading. */
     void abort() {
         closed = true;
-        outbox.add(STOP);
+        outbox.offer(STOP);
         writer.interrupt();
         channel.close();
     }

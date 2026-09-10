@@ -16,6 +16,8 @@ import org.junit.jupiter.api.Test;
 import textgame.Match;
 import textgame.protocol.Message;
 import textgame.protocol.MessageType;
+import java.util.concurrent.atomic.AtomicReference;
+import textgame.Player;
 
 /**
  * The ways a match can end. All of them are the framework's problem, never the student's:
@@ -155,5 +157,92 @@ class MatchEndingTest {
 
         server.drainUntilEndMatch();
         assertFalse(loopedForever.get());
+    }
+
+    @Test
+    void aLateEndFromTheOldMatchDoesNotTouchTheNewOneAtTheSameTable() {
+        // The old match is slow to give up after the disconnect — a Thread.sleep in the way —
+        // and meanwhile the same table starts again with the same id (an older server does
+        // that). The new match must keep its table entry, and its answers.
+        server.start(new TestGame(room -> {
+            try {
+                String a = room.players().get(0).ask("?");
+                room.tellAll("got " + a);
+            } catch (RuntimeException e) {
+                try {
+                    Thread.sleep(300);
+                } catch (InterruptedException ignored) {
+                    // not in a test
+                }
+                throw e;
+            }
+        }));
+        server.startTable("t1", "alice");
+        server.expect(MessageType.PROMPT_ONE);
+        server.playerLeaves("t1", "p1");
+
+        server.startTable("t1", "alice");
+        server.expect(MessageType.PROMPT_ONE);                       // the new match asks
+        Message late = server.expect(MessageType.ENDMATCH);          // the old one gives up
+        assertEquals("Game ended: alice disconnected.", late.text());
+
+        server.answer("t1", "p1", "x");                              // reaches the new match
+        assertEquals("got x", server.expect(MessageType.MSG_ALL).text());
+        assertEquals("", server.expect(MessageType.ENDMATCH).text());
+    }
+
+    @Test
+    void usingAPlayerFromAnEarlierMatchIsReportedAsABugWithAStackTrace() {
+        AtomicReference<Player> kept = new AtomicReference<>();
+        PrintStream realErr = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            server.start(new TestGame(room -> {
+                if (kept.get() == null) {
+                    kept.set(room.players().get(0));   // "static" state, in effect
+                    return;
+                }
+                kept.get().tell("hello from the past");
+            }));
+            server.startTable("t1", "alice");
+            server.expect(MessageType.ENDMATCH);
+
+            server.startTable("t2", "bob");
+            Message end = server.expect(MessageType.ENDMATCH);
+            assertTrue(end.text().contains("has a bug"), end.text());
+        } finally {
+            System.setErr(realErr);
+        }
+        String report = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(report.contains("belongs to a match that is already over"), report);
+        assertTrue(report.contains("MatchEndingTest"), "a stack trace pointing at the game: "
+                + report);
+    }
+
+    @Test
+    void aGameThatSwallowsTheEndingIsSlowedDownAndToldWhy() {
+        PrintStream realErr = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            server.start(new TestGame(room -> {
+                for (int i = 0; i < 25; i++) {
+                    try {
+                        room.players().get(0).ask("again?");
+                    } catch (RuntimeException e) {
+                        // The Scanner-era habit: swallow and try again.
+                    }
+                }
+            }));
+            server.startTable("t1", "alice");
+            server.expect(MessageType.PROMPT_ONE);
+            server.playerLeaves("t1", "p1");
+            server.expect(MessageType.ENDMATCH);
+        } finally {
+            System.setErr(realErr);
+        }
+        String report = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(report.contains("keeps calling ask or tell"), report);
     }
 }

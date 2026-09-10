@@ -14,8 +14,8 @@ import textgame.Match;
 public class MyGame implements Game {
 
     public String name() {
-        return "Mit spil";                       // shown in the lobby
-    }
+        return "Mit spil";                       // shown in the lobby — change it! Two games
+    }                                            // with the same name cannot both be there.
 
     public String description() {
         return "En linje, der fortæller hvad spillet går ud på.";

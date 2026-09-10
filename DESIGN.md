@@ -124,8 +124,8 @@ autocomplete after typing `p.ask` shows students what is available.
 | `String ask(String question)` | Blocks; returns the line exactly as typed. The only `ask` that does no validation. |
 | `int askInt(String question)` | Re-prompts until a whole number. |
 | `int askInt(String question, int min, int max)` | Re-prompts until in range, inclusive. |
-| `double askDouble(String question)` | Re-prompts until a number. |
-| `boolean askYesNo(String question)` | Accepts `y`/`yes`/`n`/`no`, case-insensitive. |
+| `double askDouble(String question)` | Re-prompts until a number. `3.5` and `3,5` both count. |
+| `boolean askYesNo(String question)` | Accepts `y`/`yes`/`j`/`ja` and `n`/`no`/`nej`, case-insensitive. |
 | `String askChoice(String question, String... options)` | Numbered menu; returns the chosen option's text. |
 | `int askChoiceIndex(String question, String... options)` | Same menu, returns zero-based position. |
 
@@ -221,9 +221,9 @@ Number Duel tables:
   3) create a new table
 
 Which? 3
-Table name [alices-table]? ⏎
+Table name [alice-table]? ⏎
 
-—— Number Duel / alices-table (needs 2-4 players) ——
+—— Number Duel / alice-table (needs 2-4 players) ——
 Waiting for players. Type 'ready' when you want to start.
 > 
 ```
@@ -250,14 +250,20 @@ bob: sure
   `minPlayers`. Not a countdown, not an owner pressing go — unanimity, which needs no
   privileged player and cannot strand a table when someone quits.
 - **Keywords are bare words**: `ready`, `unready`, `leave`, `who`, case-insensitive. Anything
-  else is chat.
+  else is chat. Once the match is running everything typed is an answer, and the way out is
+  `/leave` — a bare `leave` would collide with any game that asks for a word.
 - **A new arrival resets nobody.** Those already ready stay ready; the newcomer types it too.
 - **At `maxPlayers` the table is closed.** It stays listed as full so you can see it exists.
 - **Table names are unique server-wide**, letters/digits/`-`/`_`, up to 20 characters, matched
   case-insensitively. Because they are globally unique, typing a table name at any lobby
-  prompt jumps straight there — "everyone join `test1`" works with no browsing.
-- **The name defaults to the creator's** (`alices-table`); press enter to accept.
+  prompt jumps straight there — "everyone join `test1`" works with no browsing. For that to
+  work a table name needs a letter in it and cannot be one of the lobby words, since `3` or
+  `quit` typed at a prompt already mean something.
+- **The name defaults to the creator's** (`alice-table`); press enter to accept.
 - **No owner.** The creator gets no special powers.
+- **Game names are unique server-wide** too, matched case-insensitively. Two programs offering
+  "Mit spil" would be indistinguishable in the lobby, so the second is refused with a message
+  saying whose it collides with and to change `name()`.
 - **Full and in-progress tables are not joinable** but stay listed (`4/4`, `playing`).
 
 ---
@@ -326,6 +332,8 @@ Promises the framework makes, so a first-semester student never sees these:
 | **A player disconnects** | The pending `ask` throws an unchecked exception, caught by the framework **outside** `play`. Others are told *"Game ended: bob disconnected"* and the table returns to its lobby. The student writes no error handling. |
 | **A player goes idle** | An `ask` unanswered past a timeout is treated as a disconnect. |
 | **Typing out of turn** | *"It's not your turn."* Input is discarded, **not** buffered — buffering silently turns an aside into a move. |
+| **A game that never asks** | A `play` stuck in a loop holds its table, and the idle timer cannot help because nobody was asked anything. Players type `/leave`; the match ends for everybody and the table goes back to its lobby. |
+| **A stale `Player`** | Using a player from an earlier match — kept in a field, most likely — is reported as a bug with a stack trace, not as a disconnect, because a disconnect is the one thing a student is told not to investigate. |
 | **The student's game crashes** | Ends that match with a message to its players, prints the stack trace to **the student's own console**, touches nothing else. Other tables in the same program keep running. |
 | **Concurrency** | Each table runs on its own thread inside the student's program, but with a private `Match` and no shared state there is nothing to synchronise. The word "thread" never has to come up. |
 | **The wire protocol** | One UTF-8 message per line over TCP, framed and escaped by the framework. Internal on both sides. |
@@ -380,8 +388,14 @@ warning the first time a game reads `System.in`.
 and `textgame-client/target/textgame-client.jar` — with the protocol classes inside, so
 neither needs a classpath. The Maven artifacts students depend on stay thin.
 
-Two server settings, both with sensible defaults and neither student-facing:
-`-Dtextgame.idleSeconds` (default 120) and `-Dtextgame.maxTablesPerGame` (default 20).
+Three server settings, all with sensible defaults and none student-facing:
+`-Dtextgame.idleSeconds` (default 120; 0 switches it off), `-Dtextgame.maxTablesPerGame`
+(default 20), and the class password, `TEXTGAME_PASSWORD` in the environment or
+`-Dtextgame.password`. With a password set, nothing on a connection is answered until the
+right one has been sent; without one, anybody who can reach the port can join. Clients read
+theirs from a file called `kodeord.txt` next to the project's `pom.xml`, which the template's
+`.gitignore` keeps out of git — the point being that the password does not travel with the
+source.
 
 ### Module layout (Maven, Java 21, no dependencies)
 
@@ -421,12 +435,16 @@ Alternatives considered seriously and rejected, recorded so the reasoning surviv
 | **Buffering a player's answer when nobody asked** | **Rejected** in code as well as on paper: an `ANSWER` arriving unprompted is refused with *"It's not your turn."* and dropped. |
 | **Uploading student games to the server** | **Never viable.** Sandboxing untrusted code is a project in itself, and a crash would be everyone's problem. |
 | **A heartbeat message in the protocol** (server pings, clients pong) | **Deferred.** It would notice a vanished machine even with data stuck in flight, but it changes the wire format and both clients, and older clients would have to be tolerated. TCP keepalive needs no protocol change and covers the case that actually happened: a connection sitting idle. Revisit if the retransmission case — roughly fifteen minutes on Linux — ever bites in practice. |
+| **A bare `leave` during a match** | **Rejected** for `/leave`. The server's own error text used to say "type 'leave'", and the console client sent it as an answer — so it never worked. Making it work as a bare word would end a four-player match the moment somebody typed "leave" at a text adventure's "What do you do?". A slash is unambiguous, and no game asks for one. |
+| **Letting two programs share a game name** | **Rejected.** Every student starts from the same template, so day one would be a lobby full of identical entries with nothing to tell them apart. Refusing the second registration, with a message that names the clash and says to change `name()`, teaches the fix. The cost is a minute's wait when a laptop that vanished is restarted, since its old registration lingers until keepalive notices. |
+| **ASCII-only names** | **Rejected**, once Søren tried to join and was offered "Sren". The wire only needs a name to be space-free; letters in any alphabet are fine. |
 
 ---
 
 ## 11. Still open
 
-Two of the five have been decided while building; the rest still do not block anything.
+Three remain open; none of them blocks anything. Below them, what has been decided along the
+way.
 
 - **Spectators.** Joining an in-progress table read-only. Attractive for demoing to the class;
   needs a rule for what a spectator sees, since much text is private to one player.
@@ -439,9 +457,16 @@ Two of the five have been decided while building; the rest still do not block an
 ### Decided while building
 
 - **Player names** are unique server-wide, matched case-insensitively, and are 1–16 characters
-  of letters, digits, `-` or `_`. A name that is taken or malformed is refused with a plain
-  message and the client simply asks again. Uniqueness is what makes `* alice is ready (1/3)`
-  mean one person, and what lets a name be said out loud across a classroom.
+  of letters (any alphabet), digits, `-` or `_`. A name that is taken or malformed is refused
+  with a plain message and the client simply asks again. Uniqueness is what makes
+  `* alice is ready (1/3)` mean one person, and what lets a name be said out loud across a
+  classroom.
+- **Game names are unique too**, and **table names need a letter** and cannot be a lobby
+  word — both so that what is typed at a lobby prompt means one thing. See §5.
+- **Every match gets its own id.** A table starting a match is handed a fresh id, and every
+  message about that match carries it. A line left over from the previous match at the same
+  table — a slow thread finally giving up — therefore names nothing, instead of ending the
+  match that followed. Internal to the protocol; no student sees it.
 - **An unanswered question is a disconnect** after 120 seconds (`-Dtextgame.idleSeconds`). The
   match ends for everybody, exactly as a real disconnect would — but the idle player keeps
   their seat and stays connected, because being slow is not the same as walking out.

@@ -21,6 +21,8 @@ public final class HostRuntime {
 
     private final Link link;
     private final Game game;
+    /** Read once: a name() that throws must not be able to break the crash report. */
+    private final String gameName;
     private final Map<String, MatchTable> tables = new ConcurrentHashMap<>();
     private final Object sendLock = new Object();
 
@@ -29,6 +31,7 @@ public final class HostRuntime {
     public HostRuntime(Link link, Game game) {
         this.link = link;
         this.game = game;
+        this.gameName = String.valueOf(game.name());
     }
 
     void send(Message message) {
@@ -40,13 +43,16 @@ public final class HostRuntime {
                 link.send(message);
             } catch (GameServerException e) {
                 stopped = true;
+                // Closing makes the read loop notice at once, instead of whenever the socket
+                // gets round to failing on that side too.
+                link.close();
             }
         }
     }
 
     /** Registers the game and then reads messages until the server or the student stops it. */
     public void run() {
-        checkGame();
+        checkGame(game);
         // Before anything else, if there is a class password to send. A server without one
         // ignores it, so this is safe whether or not the server asks.
         String password = PasswordFile.read();
@@ -83,7 +89,11 @@ public final class HostRuntime {
                 + game.name() + " is no longer in the lobby.");
     }
 
-    private void checkGame() {
+    /**
+     * The mistakes a game can make before it is even connected, said plainly. Called before
+     * the socket is opened, so a program that fails here never appears in the lobby.
+     */
+    public static void checkGame(Game game) {
         if (game.name() == null || game.name().isBlank()) {
             throw new GameServerException("name() must return the name of your game,"
                     + " for example \"Number Duel\".");
@@ -146,7 +156,7 @@ public final class HostRuntime {
             return;
         }
         if (!table.seatsFilled()) {
-            tables.remove(tableId);
+            tables.remove(tableId, table);
             send(Message.withText(MessageType.ENDMATCH, tableId,
                     "The game program did not get everybody's seat. Try again."));
             return;
@@ -156,6 +166,7 @@ public final class HostRuntime {
 
     private void runMatch(MatchTable table) {
         String ending = "";
+        MatchTable.CURRENT.set(table);
         try {
             Match match = game.newMatch();
             if (match == null) {
@@ -167,13 +178,16 @@ public final class HostRuntime {
         } catch (PlayerGoneException e) {
             ending = "Game ended: " + e.getMessage() + ".";
         } catch (Throwable e) {
-            ending = "The game stopped because " + game.name() + " has a bug."
+            ending = "The game stopped because " + gameName + " has a bug."
                     + " Whoever is running it can see what went wrong.";
             reportCrash(table, e);
         } finally {
             table.end(ending.isEmpty() ? "the match ended" : ending);
-            tables.remove(table.id());
+            // Only our own entry: by now the server may have started the next match at this
+            // table, and that one must be left alone.
+            tables.remove(table.id(), table);
             send(Message.withText(MessageType.ENDMATCH, table.id(), ending));
+            MatchTable.CURRENT.remove();
         }
     }
 
@@ -188,7 +202,7 @@ public final class HostRuntime {
         }
         synchronized (System.err) {
             System.err.println();
-            System.err.println("=== " + game.name() + " crashed while playing with " + who
+            System.err.println("=== " + gameName + " crashed while playing with " + who
                     + " ===");
             System.err.println("The match was ended and those players were sent back to their"
                     + " table. Your other tables are still running.");

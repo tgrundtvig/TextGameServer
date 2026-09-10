@@ -5,11 +5,13 @@ Two ways to run this, and they answer different needs. Pick both.
 ## 1. In the classroom — the teacher's laptop
 
 ```bash
-java -jar textgame-server/target/textgame-server.jar 4000
+TEXTGAME_PASSWORD=<the class word> java -jar textgame-server/target/textgame-server.jar 4000
 ```
 
 Students point their game and their player client at the teacher's machine on
-the classroom network. No infrastructure, no DNS, no firewall to argue with,
+the classroom network. The password is optional here — nobody outside the room
+can reach the port — but students' `kodeord.txt` is sent whether or not the
+server wants it, so the same file works against both servers. No infrastructure, no DNS, no firewall to argue with,
 and it works when the internet does not. **This is the primary way to run a
 lesson**, and the design assumes it.
 
@@ -53,13 +55,12 @@ full match of Rock Paper Scissors through it.
 | Build pack | `dockerfile` |
 | Port | `ports_exposes 4000`, `ports_mappings 4000:4000` → host `0.0.0.0:4000` |
 | FQDN | **none** — deliberately cleared; nothing HTTP is served |
-| Env | `TEXTGAME_PORT=4000` |
+| Env | `TEXTGAME_PORT=4000`, `TEXTGAME_PASSWORD=<the class word>` |
 
-**Reachable today** on the LAN (`192.168.1.100:4000`) and the tailnet
-(`prodesk-ubuntu:4000`). **Not reachable from the internet** — verified
-2026-09-04: `212.60.124.173:443` is open, `:4000` is closed, because the
-router forwards 80 and 443 and nothing else. Step 4 below is what changes
-that, and it is the one step that is not in Coolify.
+**Reachable from the internet** as `game.tobiasgrundtvig.dk:4000` — the
+router forward in step 4 is in place, and the school-wifi test further down
+went through it. Also on the LAN (`192.168.1.100:4000`) and the tailnet
+(`prodesk-ubuntu:4000`).
 
 ## Setting it up
 
@@ -74,8 +75,12 @@ with `POST /api/v1/deploy?uuid=<app-uuid>` meanwhile.)
 (`PATCH /api/v1/applications/{uuid}` with `{"domains": ""}`, then confirm
 `fqdn` reads back `null`).
 
-**3. Env.** `TEXTGAME_PORT=4000`. Optional: `JAVA_TOOL_OPTIONS` for
-`-Dtextgame.idleSeconds` and `-Dtextgame.maxTablesPerGame`.
+**3. Env.** `TEXTGAME_PORT=4000` and `TEXTGAME_PASSWORD` — the word students
+put in `kodeord.txt`. Without it the server is open to the whole internet, and
+it says so in its first log line. Optional: `JAVA_TOOL_OPTIONS` for
+`-Dtextgame.idleSeconds` (0 switches the idle timeout off) and
+`-Dtextgame.maxTablesPerGame`. Changing the password drops nobody, but
+everybody reconnecting afterwards needs the new word.
 
 **4. Router.** Forward WAN `4000` → `192.168.1.100:4000`, TCP. This is the one
 step that is not in Coolify — 80 and 443 are already forwarded, nothing else
@@ -159,7 +164,7 @@ static Maven repository so their poms resolve `textgame-client`.
 | URL | `https://maven.tobiasgrundtvig.dk` |
 | On disk | `/var/www/maven` on prodesk, `tog:tog`, dirs 755 / files 644 |
 | Served by | Caddy, a `file_server browse` block beside the six static sites |
-| Published | `textgame-parent`, `textgame-protocol`, `textgame-client`; 0.1.0 and 0.2.0 published |
+| Published | `textgame-parent`, `textgame-protocol`, `textgame-client`; every version since 0.1.0 |
 | Publish with | `deploy/publish-maven.sh` (`--force` to overwrite a version) |
 
 **It is on 443**, so unlike the game port it works from any network that allows

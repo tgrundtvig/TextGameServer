@@ -176,4 +176,16 @@ class AskTest {
         server.expect(MessageType.ENDMATCH);
         assertEquals("alice bob carol", got.get());
     }
+
+    @Test
+    void askDoubleTakesADanishDecimalComma() {
+        server.start(new TestGame(room -> {
+            double amount = room.players().get(0).askDouble("How much?");
+            room.tellAll("got " + amount);
+        }));
+        server.startTable("t1", "alice");
+        server.answerPrompt("t1", "p1", "3,5");
+        assertEquals("got 3.5", server.expect(MessageType.MSG_ALL).text());
+        server.expect(MessageType.ENDMATCH);
+    }
 }

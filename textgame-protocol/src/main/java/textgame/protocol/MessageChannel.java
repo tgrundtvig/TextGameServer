@@ -32,6 +32,10 @@ public final class MessageChannel implements AutoCloseable {
     static final int KEEPALIVE_INTERVAL_SECONDS = 10;
     /** Unanswered probes before the connection is declared dead. */
     static final int KEEPALIVE_PROBES = 3;
+    /** Longer than any real message; a line this long is a mistake or an attack. */
+    static final int MAX_LINE_CHARS = 64 * 1024;
+    /** How long to wait for a server that does not answer, before saying so. */
+    static final int CONNECT_TIMEOUT_MILLIS = 10_000;
 
     private final Socket socket;
     private final BufferedReader in;
@@ -49,7 +53,12 @@ public final class MessageChannel implements AutoCloseable {
     /** Opens a channel to a server. */
     public static MessageChannel connect(String host, int port) throws IOException {
         Socket socket = new Socket();
-        socket.connect(new InetSocketAddress(host, port));
+        try {
+            socket.connect(new InetSocketAddress(host, port), CONNECT_TIMEOUT_MILLIS);
+        } catch (IOException e) {
+            socket.close();
+            throw e;
+        }
         socket.setTcpNoDelay(true);
         try {
             return new MessageChannel(socket);
@@ -102,11 +111,33 @@ public final class MessageChannel implements AutoCloseable {
      * @throws ProtocolException if the line arrives but cannot be parsed
      */
     public Message receive() throws IOException {
-        String line = in.readLine();
+        String line = readLine();
         if (line == null) {
             return null;
         }
         return Message.decode(line);
+    }
+
+    /**
+     * One line, or {@code null} at end of stream — like {@code BufferedReader.readLine}, but
+     * with a ceiling. {@code readLine} would buffer a line of any length, so a peer that never
+     * sends a newline could grow the process without limit.
+     */
+    private String readLine() throws IOException {
+        StringBuilder line = new StringBuilder(80);
+        while (true) {
+            int c = in.read();
+            if (c == -1) {
+                return line.isEmpty() ? null : line.toString();
+            }
+            if (c == '\n') {
+                return line.toString();
+            }
+            if (line.length() >= MAX_LINE_CHARS) {
+                throw new IOException("a line longer than " + MAX_LINE_CHARS + " characters");
+            }
+            line.append((char) c);
+        }
     }
 
     /** The socket underneath, so a test can look at how it is configured. */

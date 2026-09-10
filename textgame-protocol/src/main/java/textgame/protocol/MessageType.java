@@ -16,6 +16,12 @@ package textgame.protocol;
  * {@code askInt} is: validation and re-prompting happen in the student's own
  * JVM, so there is at most one question outstanding per player and no need for
  * request ids.
+ *
+ * <p>{@code <tableId>} below is the id of <em>one match at one table</em>: the
+ * server hands out a fresh one in {@code TABLE_START} every time a table starts
+ * playing, and the game program echoes it back. A message from a match that has
+ * already ended therefore names nothing, and cannot touch the match that
+ * followed it at the same table.
  */
 public enum MessageType {
 

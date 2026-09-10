@@ -6,7 +6,7 @@ the source of truth. This file is only about state and sequencing.
 ## Status in one line
 
 **It is built and it works.** A server, the student-facing framework, the console player
-client and three worked examples, playing whole matches end to end, with 97 tests passing.
+client and four worked examples, playing whole matches end to end, with 113 tests passing.
 
 ```
 mvn install        # builds everything and runs every test
@@ -21,7 +21,7 @@ textgame-protocol/   Message, MessageChannel, MessageType, ProtocolException   D
 textgame-server/     TextGameServer, Hub, Table, PlayerSession, Endpoint       DONE
 textgame-client/     Game, Match, Player, Room, Answers, GameServer            DONE
                      + textgame.internal.* runtime, + textgame.player client
-textgame-example/    NumberDuel, RockPaperScissors, Impostor + the tests       DONE
+textgame-example/    NumberDuel, RockPaperScissors, Impostor, LiarsDice + tests DONE
 ```
 
 Two self-contained jars come out of `mvn install`, each with the protocol classes shaded in
@@ -78,6 +78,8 @@ prompts with the match thread blocked until all N answers are in.
 | Ending a match once | `Hub.endMatch` | Idempotent: the game, a disconnect and a timeout all funnel here. |
 | Reading `System.in` | `ConsoleGuard` | Warns once when a `Scanner` appears, which is `DESIGN.md` §8's predicted mistake. |
 | A machine that vanishes | `MessageChannel.keepAlive` | TCP keepalive with short timers on every socket, both sides. Without it a rebooted laptop's game stays in the lobby forever. |
+| One id per match | `Hub.startMatch` / `matchesById` | A fresh id every time a table plays, so a slow-dying old match cannot end the new one at the same table. `HostRuntime.runMatch` removes only its own entry for the same reason. |
+| A stale `Player` | `MatchTable.checkAlive` | A thread-local says which match is running; a dead player used from a live match is a bug with a stack trace, not a disconnect. The same method slows down a game that swallows the ending. |
 
 ---
 
@@ -92,7 +94,7 @@ prompts with the match thread blocked until all N answers are in.
 | `AnswersTest` | The typed-getter error messages from `DESIGN.md` §4, word for word. |
 | `BadUsageTest` | Mistakes a student can make, and whether the message tells them what to do. |
 | `EndToEndTest` | Real server, real sockets, real game programs, whole matches from lobby to end. |
-| `LobbyTest`, `ServerRulesTest` | The rules in `DESIGN.md` §5, plus name collisions, idle timeout, the host disconnecting, and a machine that dies without closing its connection. |
+| `LobbyTest`, `ServerRulesTest` | The rules in `DESIGN.md` §5, plus name collisions, idle timeout (and switching it off), the host disconnecting, a machine that dies without closing its connection, per-match ids, a game vanishing under a player, and what a stranger gets before the password. |
 
 `ScriptedServer` (client tests) and `ScriptedPlayer`/`ScriptedGame` (integration tests) are
 the harnesses. Anything new should reuse them rather than grow a third style.
@@ -114,6 +116,17 @@ Nothing blocks a first lesson. In rough order of value:
    slot.
 4. **A longer written guide**, if the template's README turns out not to be enough. Worth
    waiting for a real lesson before writing more.
+
+### The review of 2026-09-10
+
+After the first student report, four reviewers went over every module. What they found and
+what was done about it is in git (`0.5.0`) and in the `DESIGN.md` decision log; the short
+version: per-match ids, the console client's dead end when a game vanished, `/leave` during
+a match, plain messages for `null` text, decimal commas, letters in any alphabet, unique
+game names, the password documented, a server that survives a failed `accept`, a line-length
+cap, a bounded outbox, and a dozen smaller things. Two limits remain by choice: nothing
+bounds the number of connections, and a `play` that spins without asking is only ended by
+its players typing `/leave`.
 
 ### Smaller things noticed while building
 

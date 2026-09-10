@@ -30,10 +30,38 @@ class NamesTest {
 
     @Test
     void lengthLimitsDiffer() {
-        assertTrue(Names.isTableName("12345678901234567890"));
-        assertFalse(Names.isTableName("123456789012345678901"));
+        assertTrue(Names.isTableName("t2345678901234567890"));
+        assertFalse(Names.isTableName("t23456789012345678901"));
         assertTrue(Names.isPlayerName("1234567890123456"));
         assertFalse(Names.isPlayerName("12345678901234567"));
+    }
+
+    @Test
+    void danishLettersAreLetters() {
+        assertTrue(Names.isPlayerName("Søren"));
+        assertTrue(Names.isPlayerName("Åse_2"));
+        assertTrue(Names.isTableName("blåbær"));
+        assertEquals("Søren-J", Names.suggestPlayerName("Søren J"));
+    }
+
+    @Test
+    void aTableNameCannotBeMistakenForAMenuPickOrACommand() {
+        // Typing a table name at any lobby prompt jumps there — so a name the client would
+        // read as a menu number or a command could be created but never joined.
+        assertFalse(Names.isTableName("3"));
+        assertFalse(Names.isTableName("12345678901234567890"));
+        assertFalse(Names.isTableName("quit"));
+        assertFalse(Names.isTableName("Ready"));
+        assertTrue(Names.isTableName("table3"));
+        assertTrue(Names.isTableName("quit-table"));
+
+        String said = Names.whyNotTableName("3");
+        assertTrue(said.contains("at least one letter"), said);
+        said = Names.whyNotTableName("quit");
+        assertTrue(said.contains("Try quit-table"), said);
+
+        // Player names have no such prompt, so a digit-only player name is fine.
+        assertTrue(Names.isPlayerName("007"));
     }
 
     @Test

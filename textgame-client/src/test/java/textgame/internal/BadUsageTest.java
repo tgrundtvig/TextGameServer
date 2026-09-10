@@ -1,6 +1,7 @@
 package textgame.internal;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayOutputStream;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import textgame.GameServer;
 import textgame.GameServerException;
+import textgame.protocol.Message;
 import textgame.protocol.MessageType;
 
 /** Mistakes a student can actually make, and what the framework says about them. */
@@ -107,5 +109,40 @@ class BadUsageTest {
         assertTrue(captured.toString(StandardCharsets.UTF_8)
                 .contains("newMatch() returned null"),
                 captured.toString(StandardCharsets.UTF_8));
+    }
+
+    @Test
+    void tellingSomebodyNullSaysToCheckTheVariableNotTheWireFormat() {
+        PrintStream realErr = System.err;
+        ByteArrayOutputStream captured = new ByteArrayOutputStream();
+        System.setErr(new PrintStream(captured, true, StandardCharsets.UTF_8));
+        try {
+            server.start(new TestGame(room -> {
+                String winner = null;   // the classic
+                room.tellAll(winner);
+            }));
+            server.startTable("t1", "alice");
+            assertTrue(server.expect(MessageType.ENDMATCH).text().contains("has a bug"));
+        } finally {
+            System.setErr(realErr);
+        }
+        String report = captured.toString(StandardCharsets.UTF_8);
+        assertTrue(report.contains("tellAll was given null instead of text"), report);
+        assertFalse(report.contains("ProtocolException"), report);
+    }
+
+    @Test
+    void leavingOutSomebodyWhoIsAlreadyOutIsNotAMistake() {
+        // The natural elimination loop: alive = alive.without(losers), round after round.
+        server.start(new TestGame(room -> {
+            textgame.Player alice = room.players().get(0);
+            textgame.Room alive = room.without(alice);
+            alive = alive.without(alice);
+            alive.tellAll("still in");
+        }));
+        server.startTable("t1", "alice", "bob");
+        Message told = server.expect(MessageType.MSG_ONE);
+        assertEquals("p2", told.arg(1));
+        server.expect(MessageType.ENDMATCH);
     }
 }

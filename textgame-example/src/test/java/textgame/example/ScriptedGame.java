@@ -77,6 +77,30 @@ final class ScriptedGame implements AutoCloseable {
         }
     }
 
+    /** The next message of this type within the wait, or {@code null} if none comes. */
+    Message maybe(MessageType type, long millis) {
+        long deadline = System.nanoTime() + millis * 1_000_000L;
+        while (true) {
+            long left = (deadline - System.nanoTime()) / 1_000_000L;
+            if (left <= 0) {
+                return null;
+            }
+            Message m;
+            try {
+                m = inbox.poll(left, TimeUnit.MILLISECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return null;
+            }
+            if (m == null) {
+                return null;
+            }
+            if (m.type() == type) {
+                return m;
+            }
+        }
+    }
+
     @Override
     public void close() {
         channel.close();
