@@ -1,0 +1,124 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 1/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 2/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 3/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 4/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 5/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 6/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 7/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 8/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 9/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 10/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 11/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 12/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 13/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 14/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 15/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 16/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 17/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 18/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 19/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/kt/kt\" wakeup --hook --part 20/20"
+          },
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/session-logger/session_logger.py\""
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/session-logger/session_logger.py\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/session-logger/session_logger.py\""
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "[ -n \"$KNOWLEDGE_FOUNDATION_PATH\" ] && python3 \"$KNOWLEDGE_FOUNDATION_PATH/infrastructure/session-logger/session_logger.py\""
+          }
+        ]
+      }
+    ]
+  }
+}
